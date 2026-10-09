@@ -672,6 +672,18 @@ object ModelConstants {
    * glucose rather than a snack's.
    */
   val GLUCOSE_PER_SWEET_DRINK: Float = 0.7f
+
+  /**
+   * A dish assembled out of several foods at once: a stew, a sandwich, a plate of pasta, a rice
+   * bowl.
+   *
+   * It sits between plant food and cooked meat, and deliberately below bread. A dish is starch and
+   * meat and vegetable together, and the meat and the fat in it slow the starch down - which is the
+   * whole reason a meal of several things is gentler on blood glucose than the same weight of bread.
+   * Treating it as bread would make every Farmer's Delight meal a sugar spike, which is the opposite
+   * of what a mixed plate does.
+   */
+  val GLUCOSE_PER_MIXED_DISH: Float = 0.6f
 }
 
 /**

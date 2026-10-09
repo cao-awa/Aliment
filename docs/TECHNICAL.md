@@ -117,12 +117,14 @@ The mod adheres strictly to a **data-driven, code-generation-first** design. All
 
 ### 4.3 Optional Cross-Mod Integration (`fabric:load_conditions`)
 
-Farmer's Delight support is **data-only and dependency-free**. No Gradle dependency, no `fabric.mod.json`
-entry, and no `FarmersDelight` class may be referenced: the mod must boot, pass its own self tests, and
-be fully playable with that mod absent.
+Farmer's Delight support is **optional at every level**. No `fabric.mod.json` entry, and the mod must
+boot, pass its own self tests, and be fully playable with that mod absent.
 
-The gating is Fabric API's resource-condition API, which is already on the classpath through
-`fabric-api`. Every integration JSON carries a leading condition:
+#### The recipes: data-only, gated on a resource condition
+
+The recipe and tag half of the integration is pure JSON, gated by Fabric API's resource-condition API,
+which is already on the classpath through `fabric-api`. Every integration JSON carries a leading
+condition:
 
 ```json
 "fabric:load_conditions": [
@@ -134,8 +136,54 @@ The failure mode is what makes this worth a test rather than a comment. A condit
 or one whose *codec field is misspelled*, does not raise an error anywhere - the resource is dropped
 with a log line and the recipe simply does not exist. So `AlimentSelfTest.testGrapeTags` asserts both
 directions: each gated recipe must be present **when** `FabricLoader.isModLoaded("farmersdelight")` and
-absent when it is not. The dev server has no Farmer's Delight installed, so the suite exercises the
-absent branch on every run.
+absent when it is not.
+
+#### The nutrition: a `compileOnly` dependency and three layered classes
+
+Farmer's Delight's *foods* also carry Aliment values - glucose, vitamin C, iodine, sodium - and that
+half cannot be JSON, because it has to run inside the ingestion hook. It is a real compile-time
+dependency, but a **narrow one**:
+
+```kotlin
+compileOnly("maven.modrinth:farmers-delight-refabricated:${project.property("farmersdelight_version")}")
+localRuntime("maven.modrinth:farmers-delight-refabricated:${project.property("farmersdelight_version")}")
+```
+
+`compileOnly` puts the mod on the compiler's classpath and *not* in the shipped jar, so the release
+neither bundles Farmer's Delight nor demands it; `localRuntime` installs it into dev runs only, so the
+self test can enumerate its items. It resolves from Modrinth's own maven, which is not one of the
+usual mod mavens - see the comment on the repository block in `build.gradle.kts`.
+
+**No remapping is needed**, and that is specific to this Minecraft version: 26.3 ships unmapped, and
+Farmer's Delight's jar names `net/minecraft/world/item/Item` directly and contains no intermediary
+names at all, so a plain `compileOnly` is correct where older versions would have needed a remapping
+configuration.
+
+Naming the items is a deliberate choice over naming them as registry-id strings. A string table needs
+no dependency but suffers a typo or a renamed item **silently**; a named-field table makes the
+compiler check all eighty, so a Farmer's Delight update that renames one fails the build instead of
+quietly dropping a food from the model.
+
+The load-time hazard is real, though: `compileOnly` means the classes are *not there* at runtime, so
+a class that names `ModItems` must never be loaded while Farmer's Delight is absent, or the JVM throws
+`NoClassDefFoundError`. The integration is therefore spread over four files, so that the guard the
+rest of the mod touches names nothing of that mod at all:
+
+| File | Names Farmer's Delight? | Loaded when? |
+| --- | --- | --- |
+| `FarmersDelightNutrition.kt` | No | Always. Reads `isModLoaded` once and returns `0f`/`false` early when it is false. |
+| `FarmersDelightValues.kt` | No - only the classes below | Only when `loaded` is true; no Farmer's Delight type appears in any of its signatures. |
+| `FarmersDelightItems.kt` | Yes - `ModItems`, in its static initialiser | Only when the object is first touched, which only happens when `loaded` is true. |
+| `FarmersDelightRecipes.kt` | Yes - `CookingPotRecipe` | Only from the self test, under its `loaded` guard. Ingredients arrive through vanilla's `PlacementInfo` since 26.3; the cooking pot's container did not move anywhere and is that mod's own field, so reading it means naming the recipe class. |
+
+The mechanism is the JVM's own lazy class loading: a class is initialised the first time it is
+*used*, so a player without Farmer's Delight never causes `FarmersDelightItems` to initialise and
+`ModItems` is never asked for. The middle file exists so that the guard class does not have to
+resolve a Farmer's Delight type merely to be verified - keeping that type out of every signature means
+the guard can be loaded and run with the mod absent. The `FarmersDelightItems` classification follows
+the mod's own item tags (`c:foods/raw_meat`, `c:foods/cooked_meat`, `c:foods/soup`, `c:foods/vegetable`,
+`c:foods/pie`, `c:foods/cookie`, `c:foods/food_poisoning`, `farmersdelight:drinks`) wherever one
+exists, so the grouping is Farmer's Delight's answer and not a guess at it.
 
 Two further traps, both avoided by construction:
 
@@ -152,13 +200,14 @@ Two further traps, both avoided by construction:
 
 Because standard JUnit runners cannot emulate world generation checks, chunk boundaries, player inventory interactions, and network synchronization, the mod incorporates a headless test suite built on Fabric's `FakePlayer`:
 
-### 5.1 Block and Interaction Tests (`AlimentSelfTest.kt`, 238 assertions)
+### 5.1 Block and Interaction Tests (`AlimentSelfTest.kt`, 275 assertions)
 - **Arboreal Growth**: Verifies riparian riverbank detection, directional trunk angling toward open water, and vine draping.
 - **Block Mechanics**: Axe stripping drops bark; grindstone slots accept botanical herbs, rock salt, and bark; shear crafting degrades tool durability by 1; cauldrons brew broth after 60 seconds over active campfires; condenser pipes validate directional connections.
 - **No mid-process water**: Asserts that a vessel holding a finished or in-progress batch refuses to be topped up. The fermentation tank stores ethanol as a *concentration*, so water after fermentation would refill it for unlimited bottling; the brine cauldron would otherwise be **replaced outright by a full water cauldron**, because it is the one Aliment cauldron built on vanilla's `EMPTY` dispatcher rather than overriding `useItemOn` - so the assertion is that the block is still brine afterwards, not merely that a level did not rise. The lava bucket is checked from the same dispatcher, and the stirring rod is checked to still work. All four Aliment cauldrons are then checked by name against both a water and a lava bucket, so a future omission of the `useItemOn` override fails loudly instead of silently reopening the hole. The tank is also driven through the exploit end to end the way a player would try it - bottle, refill, bottle again - asserting that the batch still yields exactly one bottle per water level and nothing more; with the guard removed that loop produces 8 bottles from 3 levels, which is what the assertion exists to catch.
 - **Crops**: Sows the mandrake, ephedra and grape vine through the real `BlockItem.useOn` path against each substrate the block claims to accept, walks them through every bone-meal stage, and asserts ripe-versus-unripe drops - including that the grape vine grows wild in the biomes its placed feature is attached to, since the seeds come from the fruit and an unpatched vine would be unobtainable. The grape vine's **right-click harvest** is covered from the player's side: the test counts the `ItemEntity`s that actually land on the ground rather than trusting the returned `InteractionResult`, so a harvest that reported success without dropping anything would still fail; it then re-ripens the picked vine and picks it a second time, which is what makes the fall-back to `age=1` mean something rather than being a constant that happens to match. Because `BlockBehaviour.useItemOn` returns `TRY_WITH_EMPTY_HAND` and `BlockBehaviour.useWithoutItem` returns `PASS`, a harvest that forgot to fall through below `age=3` would silently eat every right click on a growing vine, so bone meal is driven through the interaction path as well as through `BoneMealItem` directly - the direct call alone would keep passing while the click was being swallowed. Removing the fall-through fails 4 assertions; that is the guard.
 - **Recipes and Loot**: Validates that all `RecipeSerializer` and `LootTable` entries parse cleanly on reload.
-- **Optional integrations**: Asserts that every Farmer's Delight-gated recipe is present *exactly when* that mod is loaded, because `fabric:load_conditions` drops a file silently - a typo in the condition codec would otherwise look like a working build.
+- **Optional integrations**: Asserts that every Farmer's Delight-gated recipe is present *exactly when* that mod is loaded, because `fabric:load_conditions` drops a file silently - a typo in the condition codec would otherwise look like a working build. Where the mod *is* loaded it then reads the cooking pot's grapefruit juice back out of the recipe manager and pins its shape: one grapefruit slice rather than two, one sugar, and a glass bottle to draw into. The ingredients come through vanilla's `PlacementInfo`, which 26.3 moved them onto; the container is Farmer's Delight's own field, so that half goes through `FarmersDelightRecipes`, the fourth and last file allowed to name one of its types. Reverting the recipe to two slices and no container fails exactly three assertions, so this is a shape that is held rather than merely written down.
+- **Cross-mod nutrition without an omission**: Farmer's Delight's foods carry Aliment values, and the assertion that matters is that *none was missed*. A hand-written list of foods would agree with itself, so `testFarmersDelight` asks the **item registry** for every `farmersdelight` item carrying a `FOOD` or `CONSUMABLE` component (80 of them) and requires each to carry at least one value - so a food added to Farmer's Delight later, or a line deleted from Aliment's table, fails the suite rather than going unnoticed. Deletion of one dish produces exactly `1 unmodelled` and a failure. It then **eats** several of them through the same `finishUsingItem` path the mixin hooks and reads the body afterwards, because a perfect lookup table wired to nothing would pass every check above: a tomato takes vitamin C from 30 to 40, a kelp roll adds its iodine and its mixed-dish glucose, bacon moves sodium and chloride by its curing salt, a bowl of bone broth hydrates, and a fried egg - which carries no vitamin C, iodine or sodium at all - changes nothing but its cooked-meat glucose, which is the control against a default charged to every Farmer's Delight item. Disabling the ingestion wiring fails exactly those six assertions. Beside them sit the negative controls that catch a *double* count - a vanilla apple must not collect Farmer's Delight's vitamin C, vanilla bread must not be charged twice, and vanilla's milk *bucket* must not become a Farmer's Delight drink - plus per-item spot checks that pin each tier and nutrient to an unmistakable food (a raw cut as raw meat, cooked rice as bread, a kelp roll slice as exactly a third of a roll, bacon as cured but below a spoonful of salt).
 
 ### 5.2 Physiological Model and Localization Suite (`AlimentPhysiologySelfTest.kt`, 400+ assertions)
 - **Equilibrium Values**: Verifies that healthy baseline states remain centered in normal clinical reference ranges.

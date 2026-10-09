@@ -131,7 +131,7 @@ passing. The seeds recipe being in the recipe manager, the mandrake
 patches being attached to the plains and the swamps and to nothing else, the gymnopilus' three
 cooking recipes loading with the same timings raw beef has, and its patches being attached to the dark
 forest and the taiga and to nothing else. It reads the worldgen answer out of the biome registry
-rather than by scanning a world, which is what the patches are actually decided by, and verifies the advancement tree and triggers, and the fermentation tank and condenser pipe distillation machinery. 238 checks.
+rather than by scanning a world, which is what the patches are actually decided by, and verifies the advancement tree and triggers, and the fermentation tank and condenser pipe distillation machinery, and - where Farmer's Delight is installed - that its gated recipes parsed at all, which is the only thing that notices a malformed condition or container, since a recipe that fails to parse simply vanishes without an error. It then reads the cooking pot's grapefruit juice back out of the recipe manager and pins it down: one grapefruit slice rather than two, one sugar, and a glass bottle to draw into. 275 checks, or 243 when Farmer's Delight is not installed.
 
 ### `dev/AlimentPhysiologySelfTest.kt` - physiology
 
@@ -191,7 +191,7 @@ because tag membership is what a wood set actually is: each of the four log-shap
 to be in `aliment:grapefruit_logs`, in `minecraft:logs` and axe-mineable; each shaped block in the one
 vanilla tag that makes it craftable and mineable; a willow log is asserted *not* to be in the
 grapefruit tag; and both boats are checked to be `BoatItem`s whose entity types are registered and
-distinct from the willow's. 686 checks, all passing.
+distinct from the willow's. 699 checks, all passing.
 
 ### Running either one
 

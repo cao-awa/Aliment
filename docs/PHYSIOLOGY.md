@@ -73,6 +73,15 @@ Each mineral has an established **clinical reference range**, with **bilateral t
 * **Consuming 1 serving**: 140 → 143 or 143.5 mmol/L (**remains safely within normal range**);
 * **Consuming 2 servings**: 140 → 146 or 147 mmol/L (**exceeds reference range**, triggering hypernatremic thirst).
 
+**Cured meat is the one dietary salt that is not a spoonful of salt.** Bacon and ham are brined pork
+in the real kitchen and brining is salt, so Farmer's Delight's seven cured foods carry sodium - but a
+rasher is salty without being a serving of salt, so they sit deliberately **below** the 3.0 of a salt
+serving: a cut is **+0.8**, a plate built on it - a bacon sandwich or bacon and eggs - is **+1.2**, and
+a whole honey-glazed ham is **+2.0**. Even the ham is short of one salt serving, so no cured food can
+push a body out of range on its own; two of the larger plates will. Nothing else in that mod
+qualifies, because Farmer's Delight adds no salt item and **no recipe of its own calls for salt**, so
+there is no hidden sodium anywhere else in its larder.
+
 ### Iodine
 The human body cannot synthesize iodine and **does not retain it permanently**:
 
@@ -83,6 +92,8 @@ The human body cannot synthesize iodine and **does not retain it permanently**:
 | Seaweed `aliment:seaweed` | **+0.20 µmol/L** | Nutrition: 1 / Saturation: 0.2; renewable in seabed farms |
 | Cooked Seaweed `aliment:cooked_seaweed` | **+0.25 µmol/L** | Nutrition: 3 / Saturation: 0.6; high-density iodine source |
 | Seaweed Iodized Salt `aliment:seaweed_iodized_salt` | **+0.40 µmol/L** | Adds **+1.5 mmol/L Na and Cl**; balances electrolytes and prevents hypothyroidism |
+| Kelp Roll `farmersdelight:kelp_roll` | **+0.30 µmol/L** | *Farmer's Delight.* Three dried kelp wrapped around a bowl of rice; the rice is most of it, so it is charged as a dish containing kelp and not as three dried kelp |
+| Kelp Roll Slice `farmersdelight:kelp_roll_slice` | **+0.10 µmol/L** | *Farmer's Delight.* A third of a roll, exactly as the cutting board divides it |
 
 Without dietary iodine, plasma concentrations steadily drain at a fixed rate of 0.15 µmol/L per day, **depleting completely to the floor (0.05 µmol/L) in exactly 3 in-game days**:
 * **Daily Maintenance**: 0.15 µmol/L is lost daily via basal metabolism (accelerated during fever and sweating).
@@ -127,6 +138,14 @@ Vitamin C cannot be synthesized endogenously by humans. Serum reference values a
 | Seaweed `aliment:seaweed` | **+5.0 µmol/L** |
 | Cooked Seaweed `aliment:cooked_seaweed` | **+3.0 µmol/L** |
 | Grapefruit Slice `aliment:grapefruit_slice` | **+10.0 µmol/L** - a plant food, and a citrus besides, so the same as a carrot |
+
+**Farmer's Delight's plants carry vitamin C on the same scale.** A vegetable is a root vegetable
+wherever it comes from, so a tomato is worth a carrot (**+10.0**), a cabbage **+8.0**, an onion
+**+6.0** and a tomato sauce **+8.0**. A composed dish earns what went into it and no more, which is
+what makes the salads the richest things on the list - a gleaming salad is **+18.0** and a fruit salad
+**+16.0** - while a sandwich that takes a slice of tomato as a garnish is **+4.0**. Meat, eggs, bread,
+rice, milk and chocolate carry **none**, because the vitamin is in the plants; there is no vitamin C
+in a grilled salmon however it is cooked.
 
 ### Hydration `water`
 
@@ -615,7 +634,8 @@ back, so `glucose` is a resource the player manages rather than a value the mode
 
 | Food class | Glucose | Examples |
 | --- | --- | --- |
-| Bread | **+0.7** | `minecraft:bread` |
+| Starch, sugar and bread | **+0.7** | `minecraft:bread`, sweet drinks, a bowl of cooked rice |
+| Mixed dish | **+0.6** | an assembled plate: a stew, a sandwich, a pasta |
 | Cooked meat and fish | **+0.5** | cooked beef, porkchop, chicken, mutton, rabbit, cod, salmon |
 | Raw meat and fish | **+0.4** | beef, porkchop, chicken, mutton, rabbit, cod, salmon, tropical fish, rotten flesh |
 | Plant food | **+0.4** | fruit, vegetables, kelp, seaweed, mushrooms, every willow bark soup |
@@ -624,6 +644,12 @@ Bread is the only food that leaves the reference range on its own from a normal 
 5.7), which is why it is separated from the rest of the plant food. Everything edible that is not meat
 or bread counts as plant food, so a player cannot dodge the glucose cost of eating by living on
 berries.
+
+**The mixed dish band exists for assembled food.** A plate built from starch, meat and vegetable at
+once - a stew, a sandwich, a pasta - is charged **+0.6**, between plant food and bread, because the
+meat and the fat in it slow the starch down. Charging it as bread would make every cooked meal a
+sugar spike, and charging it as plant food would make it cheaper than the rice inside it. Farmer's
+Delight's thirty-six dishes are the foods that use this band; the mod's own plain ingredients do not.
 
 ### Per-Tick Dynamics
 

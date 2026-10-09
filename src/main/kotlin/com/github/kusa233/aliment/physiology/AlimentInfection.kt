@@ -1,5 +1,6 @@
 package com.github.kusa233.aliment.physiology
 
+import com.github.kusa233.aliment.compat.farmersdelight.FarmersDelightNutrition
 import com.github.kusa233.aliment.registry.AlimentItems
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.util.RandomSource
@@ -89,7 +90,11 @@ object AlimentInfection {
         item in RISKY_FOODS || item === AlimentItems.RAW_WILLOW_BARK_SOUP_BOTTLE ||
             item === AlimentItems.RAW_WILLOW_BARK_SOUP_BOWL ||
             item === AlimentItems.CRUDE_SALT_RAW_WILLOW_BARK_SOUP ||
-            item === AlimentItems.SALT_RAW_WILLOW_BARK_SOUP
+            item === AlimentItems.SALT_RAW_WILLOW_BARK_SOUP ||
+            // Farmer's Delight's raw dough, raw pasta, chicken cuts and nether salad - the four it
+            // tags `c:foods/food_poisoning` - plus every other raw cut it adds. Vanilla raw meat is
+            // already on the list above; this is the same rule applied to the same kind of food.
+            FarmersDelightNutrition.isRisky(item)
 
     /**
      * Rolls once a second for a virus from whatever creature is standing next to the player.

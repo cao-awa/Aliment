@@ -117,10 +117,11 @@ compileJava -> compileKotlin -> compileScala -> compileJava
 
 ### 4.3 可选跨模组联动（`fabric:load_conditions`）
 
-农夫乐事联动**只存在于数据层，且不引入任何依赖**：不加 Gradle 依赖、不写 `fabric.mod.json`
-条目、也不得引用任何 `FarmersDelight` 类。在没有该模组的情况下，本模组必须能启动、通过自检，并可完整游玩。
+农夫乐事联动**从各个层面都是可选的**：不写 `fabric.mod.json` 条目。在没有该模组的情况下，本模组必须能启动、通过自检，并可完整游玩。
 
-门控由 Fabric API 的资源条件系统完成，`fabric-api` 已经把它带进了 classpath。每个联动 JSON 都带一个前置条件：
+#### 配方：纯数据层，由资源条件门控
+
+联动的配方与标签部分就是纯 JSON，由 Fabric API 的资源条件系统门控，`fabric-api` 已经把它带进了 classpath。每个联动 JSON 都带一个前置条件：
 
 ```json
 "fabric:load_conditions": [
@@ -131,8 +132,33 @@ compileJava -> compileKotlin -> compileScala -> compileJava
 真正值得写成测试而不是注释的，是它的**失败方式**。条件解析失败、或者 **codec 字段名拼错**，都不会
 在任何地方报错——该资源只是被丢弃并留一行日志，配方就此不存在。因此
 `AlimentSelfTest.testGrapeTags` 会同时断言两个方向：每个被门控的配方，在
-`FabricLoader.isModLoaded("farmersdelight")` 为真时**必须**存在，为假时**必须**不存在。开发用服务端
-并未安装农夫乐事，所以每次跑自检走的都是「不存在」那一支。
+`FabricLoader.isModLoaded("farmersdelight")` 为真时**必须**存在，为假时**必须**不存在。
+
+#### 营养：一个 `compileOnly` 依赖与三层类结构
+
+农夫乐事的**食物**也带有 Aliment 数值——血糖、维生素 C、碘、钠——而这一半不可能是 JSON，因为它必须在进食钩子内部运行。它是一份真实的编译期依赖，但很**窄**：
+
+```kotlin
+compileOnly("maven.modrinth:farmers-delight-refabricated:${project.property("farmersdelight_version")}")
+localRuntime("maven.modrinth:farmers-delight-refabricated:${project.property("farmersdelight_version")}")
+```
+
+`compileOnly` 把该模组放上编译器的 classpath，而**不**放进发布的 jar，因此发行版既不打包农夫乐事也不要求它；`localRuntime` 只把它装进开发运行环境，好让自检能枚举它的物品。它从 Modrinth 自家的 maven 解析——那不是常见的模组仓库——详见 `build.gradle.kts` 里仓库块上的注释。
+
+**不需要重映射**，这一点与这个 Minecraft 版本有关：26.3 未混淆发布，而农夫乐事的 jar 直接写着 `net/minecraft/world/item/Item`、完全不含 intermediary 名称，所以普通的 `compileOnly` 就是对的，而在更早的版本上这会需要专门的 remap 配置。
+
+**用具名字段而不是注册名字符串，是刻意的选择。** 字符串表不需要依赖，但拼错或改名会**悄无声息**地失效；具名字段表让**编译器**检查全部八十项，因此农夫乐事某次更新若重命名了某个物品，就会让构建失败，而不是悄悄从模型里掉一种食物。
+
+不过加载期风险是真实的：`compileOnly` 意味着这些类在运行时**并不存在**，所以任何具名 `ModItems` 的类在农夫乐事缺席时都不能被加载，否则 JVM 会抛 `NoClassDefFoundError`。因此这套联动被拆成四个文件，保证模组其余部分真正触达的那个守卫类完全不具名该模组：
+
+| 文件 | 是否具名农夫乐事 | 何时被加载 |
+| --- | --- | --- |
+| `FarmersDelightNutrition.kt` | 否 | 始终。只在初始化时读一次 `isModLoaded`，为假时提前返回 `0f`/`false`。 |
+| `FarmersDelightValues.kt` | 否——只提到下面两层 | 仅当 `loaded` 为真；它的任何签名里都不出现农夫乐事的类型。 |
+| `FarmersDelightItems.kt` | 是——`ModItems`，写在静态初始化器里 | 仅当该 object 首次被触达，而那只在 `loaded` 为真时发生。 |
+| `FarmersDelightRecipes.kt` | 是——`CookingPotRecipe` | 仅自检在它的 `loaded` 守卫之内触达。26.3 起配方材料已移到原版的 `PlacementInfo` 上，但烹饪锅要的容器没有跟着搬走，仍是该模组自己的字段，所以读它就必须具名那个配方类。 |
+
+机制就是 JVM 自身的惰性类加载：一个类在**首次被使用**时才初始化，所以没装农夫乐事的玩家永远不会让 `FarmersDelightItems` 初始化，`ModItems` 也永远不会被索取。中间那层文件的意义在于：守卫类不必为了通过校验而去解析农夫乐事的类型——把该类型挡在所有签名之外，守卫本身就能在模组缺席时被加载并运行。`FarmersDelightItems` 的分类凡是农夫乐事自己发布了标签的，都沿用它自己的物品标签（`c:foods/raw_meat`、`c:foods/cooked_meat`、`c:foods/soup`、`c:foods/vegetable`、`c:foods/pie`、`c:foods/cookie`、`c:foods/food_poisoning`、`farmersdelight:drinks`），所以分组是农夫乐事自己的答案，而不是对它的猜测。
 
 另外两个坑都在设计上避开了：
 
@@ -148,13 +174,14 @@ compileJava -> compileKotlin -> compileScala -> compileJava
 
 由于普通 JUnit 测试难以模拟真实的世界生成（WorldGen）、区块边界检查、玩家手持交互及网络同步，模组设计了基于 Fabric `FakePlayer` 的游戏内无头自检系统：
 
-### 5.1 方块与交互测试 (`AlimentSelfTest.kt`，238 项断言)
+### 5.1 方块与交互测试 (`AlimentSelfTest.kt`，275 项断言)
 - **树木生成与形态**：测试河流河岸检测、树干倾斜算法向水面弯曲、垂柳藤条生成。
 - **方块交互**：斧头剥皮掉落树皮、砂轮输入/产出槽研磨逻辑（树皮、岩盐、麻黄、黄连、黄柏、甘草）、剪刀合成耐久扣减 1 点、炼药锅 60 秒营火加热熬汤、蒸馏冷凝管方向判定。
 - **禁止中途加水**：断言装着成品或半成品的容器拒绝被补水。发酵罐存的是乙醇的**浓度**，发酵后加水就等于无限装瓶；而粗盐水炼药锅会被**整个替换成满的水炼药锅**，因为它是唯一基于原版 `EMPTY` 分发器、而没有重写 `useItemOn` 的 Aliment 炼药锅——所以断言是「之后它仍然是粗盐水」而不是「水位没涨」。同时从同一个分发器检查岩浆桶，并确认搅拌棒依然可用。随后四个 Aliment 炼药锅**逐一具名**接受水桶与岩浆桶检查，这样将来漏掉某个 `useItemOn` 重写会直接报错，而不是悄然把洞重新打开。发酵罐还按玩家实际的刷法跑了一遍完整流程——装瓶、补水、再装瓶——断言一批料仍然**恰好每格水出一瓶**，不多出；移除守卫后这个循环会用 3 格水产出 8 瓶，这正是该断言存在的意义。
 - **作物**：让曼陀罗、麻黄与葡萄藤沿真实的 `BlockItem.useOn` 路径种到方块自称接受的每一种基质上，用骨粉走完全部生长阶段，并断言成熟与未成熟的掉落差异——其中包括葡萄藤**必须**野生生长于其地物所挂载的生物群系，因为种子来自果实，没有地物的葡萄藤将无法获得。葡萄藤的**右键采收**是从玩家一侧覆盖的：测试统计真正落到地上的 `ItemEntity`，而不是相信返回的 `InteractionResult`，所以「报告成功却没掉东西」的采收依然会被判失败；随后它把这株被采过的藤重新催熟再采第二次，这才让「退回 `age=1`」有意义，而不是一个恰好对得上的常量。由于 `BlockBehaviour.useItemOn` 返回 `TRY_WITH_EMPTY_HAND`、`BlockBehaviour.useWithoutItem` 返回 `PASS`，如果采收忘了在 `age=3` 以下放行，就会悄悄吞掉生长中葡萄藤上的每一次右键，所以骨粉既走交互路径、也直接调用 `BoneMealItem`——只调后者的话，点击被吞掉时测试仍会全绿。删掉这段放行会挂 4 项断言，这就是守卫本身。
 - **配方与战利品**：验证数据包加载后所有 RecipeSerializer 与 LootTable 的正确性。
-- **可选联动**：断言每个被农夫乐事门控的配方**恰好在该模组加载时**存在——因为 `fabric:load_conditions` 是静默丢弃文件的，条件 codec 写错看起来会和正常构建一模一样。
+- **可选联动**：断言每个被农夫乐事门控的配方**恰好在该模组加载时**存在——因为 `fabric:load_conditions` 是静默丢弃文件的，条件 codec 写错看起来会和正常构建一模一样。该模组在场时，它还会从配方管理器里把烹饪锅的葡萄柚汁读回来、钉住它的形状：一个葡萄柚片而不是两个、一份糖、以及用玻璃瓶接出。材料走 26.3 起移到其上的原版 `PlacementInfo`，容器则是农夫乐事自己的字段，所以那一半经由 `FarmersDelightRecipes`——第四个、也是最后一个被允许具名它某个类型的文件。把配方改回两个果片且不要容器，会恰好让三项断言失败，所以这是一个被守住、而不只是被写下来的形状。
+- **不遗漏的跨模组营养**：农夫乐事的食物带有 Aliment 数值，而真正重要的断言是**没有任何一种被漏掉**。手写的食物清单只会自我印证，所以 `testFarmersDelight` 改为向**物品注册表**索取每一个带 `FOOD` 或 `CONSUMABLE` 组件、命名空间为 `farmersdelight` 的物品（共 80 个），并要求每一个都至少带一项数值——因此农夫乐事日后新增的食物、或 Aliment 数值表里被删掉的一行，都会让自检失败而不是无人察觉。删掉一道菜会**恰好**产生 `1 unmodelled` 与一次失败。随后它**真的吃下**其中若干种——走 mixin 挂钩的同一个 `finishUsingItem` 路径——再读取身体状态，因为一张完全正确却什么都没接上的查表会通过上面每一项检查：番茄把维生素 C 从 30 抬到 40，海带卷补上它的碘与混合菜血糖，培根按腌制盐推动钠与氯，一碗骨汤补水，而本身不含维生素 C、碘与钠的煎蛋除了熟肉血糖之外什么都不改——这正是防「给每种农夫乐事食物都塞一个默认值」的反向对照。把进食接线关掉，恰好这六项断言会失败。与之并列的是防止**重复计算**的反向对照——原版苹果不得再收一份农夫乐事的维生素 C、原版面包含糖不得被收两次、原版**奶桶**不得变成农夫乐事的饮品——以及把每个档位与营养素钉在一种不会认错的物品上的逐项抽查（生肉按生肉计、米饭按面包计、海带卷切片恰好是一片卷的三分之一、培根含盐但低于一勺盐）。
 
 ### 5.2 生理模型与本地化自检 (`AlimentPhysiologySelfTest.kt`，400+ 项断言)
 - **数值稳态**：验证健康状态各指标处于参考范围中心。

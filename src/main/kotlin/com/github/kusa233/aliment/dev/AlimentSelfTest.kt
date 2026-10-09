@@ -1,6 +1,11 @@
 package com.github.kusa233.aliment.dev
 
 import com.github.kusa233.aliment.advancement.AlimentAdvancements
+import com.github.kusa233.aliment.compat.farmersdelight.FarmersDelightNutrition
+import com.github.kusa233.aliment.compat.farmersdelight.FarmersDelightRecipes
+import com.github.kusa233.aliment.physiology.AlimentAttachments
+import com.github.kusa233.aliment.physiology.AlimentData
+import com.github.kusa233.aliment.physiology.TraceElements
 import com.github.kusa233.aliment.registry.AlimentBlocks
 import com.github.kusa233.aliment.registry.AlimentItems
 import com.github.kusa233.aliment.registry.AlimentWorldGen
@@ -28,6 +33,8 @@ import net.fabricmc.loader.api.FabricLoader
 import net.minecraft.advancements.AdvancementType
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
+import net.minecraft.core.component.DataComponents
+import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.core.registries.Registries
 import net.minecraft.resources.Identifier
 import net.minecraft.resources.ResourceKey
@@ -38,6 +45,7 @@ import net.minecraft.world.InteractionHand
 import net.minecraft.world.InteractionResult
 import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.item.BoneMealItem
+import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.item.alchemy.PotionContents
@@ -56,6 +64,7 @@ import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.BlockHitResult
 import net.minecraft.world.phys.Vec3
 import org.apache.logging.log4j.LogManager
+import kotlin.math.abs
 
 /**
  * DEVELOPMENT ONLY. Temporary entrypoint used to verify the willow features on a headless dev
@@ -82,6 +91,9 @@ class AlimentSelfTest : ModInitializer {
     private var stage = 0
     private var passed = 0
     private var failed = 0
+
+    /** Whether Farmer's Delight is installed. Read once; the loader's answer never changes. */
+    private val fdLoaded = FabricLoader.getInstance().isModLoaded("farmersdelight")
     private var cookStartTick = -1
     private var leaningChecked = false
     private var filledWhileRaw = false
@@ -138,6 +150,7 @@ class AlimentSelfTest : ModInitializer {
                 testGrapeVine(level, FakePlayer.get(level))
                 testGrapeWine(level, FakePlayer.get(level))
                 testGrapeTags(level)
+                testFarmersDelight(level, FakePlayer.get(level))
                 stage = 4
             }
 
@@ -859,7 +872,7 @@ class AlimentSelfTest : ModInitializer {
         // Farmer's Delight is optional, so the gated recipes are only expected where it is loaded -
         // and, more importantly, must not be loaded where it is not, because a failed
         // `fabric:load_conditions` drops the file with no error of any kind.
-        val fdLoaded = FabricLoader.getInstance().isModLoaded("farmersdelight")
+        val fdLoaded = this.fdLoaded
         logger.info("SELFTEST farmersdelight loaded={}", fdLoaded)
         listOf("grapefruit_from_cutting", "grape_seeds_from_cutting", "grapefruit_juice_from_cooking").forEach { id ->
             val present = level.server.recipeManager
@@ -870,7 +883,289 @@ class AlimentSelfTest : ModInitializer {
                 present == fdLoaded,
             )
         }
+
+        // The pot's juice is drawn into a bottle and takes a single slice, and neither is visible
+        // through the `Recipe` interface: the ingredients moved onto vanilla's `PlacementInfo` in
+        // 26.3, and the container is Farmer's Delight's own field, which is what the compat helper
+        // is for. The presence check above is what proves that mod *parsed* the file, because a
+        // malformed `container` drops the recipe silently with no error anywhere; these only pin
+        // down what it says, so that a later edit back to two slices is not a change nothing notices.
+        if (fdLoaded) {
+            val recipe = level.server.recipeManager
+                .byKey(ResourceKey.create(Registries.RECIPE, Registration.id("grapefruit_juice_from_cooking")))
+                .orElse(null)
+                ?.value()
+            val inputs = recipe?.placementInfo()?.ingredients().orEmpty()
+            logger.info("SELFTEST cooking pot juice ingredient count: {}", inputs.size)
+            check(
+                "the cooking pot's juice takes one grapefruit slice, not two",
+                inputs.count { it.test(ItemStack(AlimentItems.GRAPEFRUIT_SLICE, 1)) } == 1,
+            )
+            check("and takes one sugar", inputs.count { it.test(ItemStack(Items.SUGAR, 1)) } == 1)
+            check("and takes nothing else", inputs.size == 2)
+            check(
+                "and is drawn into a glass bottle",
+                FarmersDelightRecipes.cookingPotContainer(recipe).`is`(Items.GLASS_BOTTLE),
+            )
+        }
     }
+
+    /**
+     * Asserts that every edible Farmer's Delight item was given Aliment values, and that none was
+     * missed.
+     *
+     * Farmer's Delight is optional, so the first thing this does is prove the integration is *inert*
+     * without it. The four checks before the guard hold in either configuration, and each of them
+     * would catch a specific way of getting the integration wrong:
+     *
+     * * a vanilla apple must not collect Farmer's Delight's vitamin C on top of its own;
+     * * vanilla bread must not be charged twice;
+     * * vanilla's milk *bucket* must not become a Farmer's Delight drink - only the mod's bottle is;
+     * * a stone must stay inedible.
+     *
+     * The guard after them is the assertion that the mod is absent: reading
+     * [FarmersDelightNutrition.loaded] is itself safe, but if the class behind it had named
+     * `ModItems` on the way in, this run would already have died with `NoClassDefFoundError` rather
+     * than reaching this line.
+     *
+     * With the mod present the real test runs. It asks the item registry - not a hand-written list -
+     * for every `farmersdelight` item carrying a `FOOD` or `CONSUMABLE` component, and requires each
+     * one to carry at least one Aliment value. A hand-written list would have agreed with itself;
+     * this one cannot, because the items come from the mod and the values come from us. That is the
+     * only way to show there is no omission.
+     */
+    private fun testFarmersDelight(level: ServerLevel, player: FakePlayer) {
+        // These hold with or without the mod, and they are what catch a double count.
+        check(
+            "Farmer's Delight adds no vitamin C to a vanilla apple",
+            FarmersDelightNutrition.vitaminCFor(Items.APPLE) == 0f,
+        )
+        check(
+            "nor any glucose to vanilla bread",
+            FarmersDelightNutrition.glucoseFor(Items.BREAD) == 0f,
+        )
+        check(
+            "nor does it turn vanilla's milk bucket into a drink of its own",
+            !FarmersDelightNutrition.isDrink(Items.MILK_BUCKET) && !FarmersDelightNutrition.isRisky(Items.BEEF),
+        )
+        check("nor is a stone edible", FarmersDelightNutrition.glucoseFor(Items.STONE) == 0f)
+
+        if (!fdLoaded) {
+            check(
+                "the whole Farmer's Delight integration is inert without the mod",
+                !FarmersDelightNutrition.loaded,
+            )
+            return
+        }
+
+        check("the Farmer's Delight integration is live with the mod", FarmersDelightNutrition.loaded)
+
+        // The mod's own registry is the source of truth for *what is edible*, so the test cannot
+        // agree with a mistake in our own list.
+        val edible = BuiltInRegistries.ITEM.filter { item ->
+            BuiltInRegistries.ITEM.getKey(item).namespace == "farmersdelight" &&
+                (item.components().has(DataComponents.FOOD) ||
+                    item.components().has(DataComponents.CONSUMABLE))
+        }
+        logger.info("SELFTEST farmersdelight edible items = {}", edible.size)
+        check("Farmer's Delight's edible items are enumerable", edible.size >= 70)
+
+        // The assertion that matters: nothing edible is left without a value of some kind.
+        val unmodelled = edible.filter { item ->
+            FarmersDelightNutrition.glucoseFor(item) <= 0f &&
+                FarmersDelightNutrition.vitaminCFor(item) <= 0f &&
+                FarmersDelightNutrition.iodineFor(item) <= 0f &&
+                FarmersDelightNutrition.sodiumFor(item) <= 0f &&
+                !FarmersDelightNutrition.isDrink(item)
+        }
+        unmodelled.forEach {
+            logger.error(
+                "SELFTEST unmodelled Farmer's Delight item: {}",
+                BuiltInRegistries.ITEM.getKey(it),
+            )
+        }
+        check(
+            "every edible Farmer's Delight item has an Aliment value (${unmodelled.size} unmodelled)",
+            unmodelled.isEmpty(),
+        )
+
+        // Spot checks, by registry id so that this file names no Farmer's Delight type at all. Each
+        // one pins a tier or a nutrient to a specific food, so a table edited by mistake fails here
+        // rather than in a player's body.
+        val kelpRoll = fdItem("kelp_roll")
+        check(
+            "a kelp roll carries the iodine of the seaweed wrapped round it",
+            kelpRoll != null && FarmersDelightNutrition.iodineFor(kelpRoll) > 0f,
+        )
+        val kelpRollSlice = fdItem("kelp_roll_slice")
+        check(
+            "and a slice carries a third of a roll's",
+            kelpRollSlice != null && kelpRoll != null &&
+                abs(
+                    FarmersDelightNutrition.iodineFor(kelpRollSlice) * 3f -
+                        FarmersDelightNutrition.iodineFor(kelpRoll),
+                ) < 0.0001f,
+        )
+        val bacon = fdItem("bacon")
+        check(
+            "bacon carries curing salt",
+            bacon != null && FarmersDelightNutrition.sodiumFor(bacon) > 0f,
+        )
+        check(
+            "but not as much as a spoonful of salt",
+            bacon != null && FarmersDelightNutrition.sodiumFor(bacon) < 3.0f,
+        )
+        check(
+            "the crust of a bread does not count as cured",
+            fdItem("cooked_rice")?.let { FarmersDelightNutrition.sodiumFor(it) } == 0f,
+        )
+        check(
+            "a tomato carries vitamin C",
+            fdItem("tomato")?.let { FarmersDelightNutrition.vitaminCFor(it) }?.let { it > 0f } == true,
+        )
+        check(
+            "and a cooked steak carries none, because the vitamin is in the plants",
+            fdItem("grilled_salmon")?.let { FarmersDelightNutrition.vitaminCFor(it) } == 0f,
+        )
+
+        // The tiers, each on an item that is unmistakably of its kind.
+        check(
+            "a mixed dish is charged as a mixed dish",
+            fdItem("grilled_salmon")?.let { FarmersDelightNutrition.glucoseFor(it) } ==
+                AlimentData.GLUCOSE_PER_MIXED_DISH,
+        )
+        check(
+            "a cooked rice is charged as bread",
+            fdItem("cooked_rice")?.let { FarmersDelightNutrition.glucoseFor(it) } ==
+                AlimentData.GLUCOSE_PER_BREAD,
+        )
+        check(
+            "a raw cut is charged as raw meat",
+            fdItem("minced_beef")?.let { FarmersDelightNutrition.glucoseFor(it) } ==
+                AlimentData.GLUCOSE_PER_RAW_MEAT,
+        )
+        check(
+            "a cooked cut is charged as cooked meat",
+            fdItem("cooked_bacon")?.let { FarmersDelightNutrition.glucoseFor(it) } ==
+                AlimentData.GLUCOSE_PER_COOKED_MEAT,
+        )
+        check(
+            "a tomato is charged as plant food",
+            fdItem("tomato")?.let { FarmersDelightNutrition.glucoseFor(it) } ==
+                AlimentData.GLUCOSE_PER_PLANT_FOOD,
+        )
+
+        // The drinks: the three sweetened ones count as drinks *and* as sweet drinks, and the
+        // bottled milk counts as a drink and as nothing else, exactly like vanilla's bucket.
+        check(
+            "apple cider is a sweet drink",
+            fdItem("apple_cider")?.let {
+                FarmersDelightNutrition.isDrink(it) &&
+                    FarmersDelightNutrition.glucoseFor(it) == AlimentData.GLUCOSE_PER_SWEET_DRINK
+            } == true,
+        )
+        check(
+            "bottled milk is a drink and no glucose at all",
+            fdItem("milk_bottle")?.let {
+                FarmersDelightNutrition.isDrink(it) && FarmersDelightNutrition.glucoseFor(it) == 0f
+            } == true,
+        )
+        check(
+            "a stew in a bowl is a drink, as vanilla's mushroom stew is",
+            fdItem("bone_broth")?.let {
+                FarmersDelightNutrition.isDrink(it) &&
+                    FarmersDelightNutrition.glucoseFor(it) == AlimentData.GLUCOSE_PER_MIXED_DISH
+            } == true,
+        )
+
+        // The risk roll: the mod's own `c:foods/food_poisoning` set, plus every raw cut.
+        check(
+            "raw dough rolls for an infection",
+            fdItem("wheat_dough")?.let { FarmersDelightNutrition.isRisky(it) } == true,
+        )
+        check(
+            "and so does a raw chicken cut",
+            fdItem("chicken_cuts")?.let { FarmersDelightNutrition.isRisky(it) } == true,
+        )
+        check(
+            "but a cooked one does not",
+            fdItem("cooked_chicken_cuts")?.let { FarmersDelightNutrition.isRisky(it) } == false,
+        )
+        check(
+            "nor does a cooked rice",
+            fdItem("cooked_rice")?.let { FarmersDelightNutrition.isRisky(it) } == false,
+        )
+
+        // ------------------------------------------------------------------ eating one for real
+        //
+        // Everything above asks the *tables* what a food is worth. None of it proves the tables are
+        // wired to anything: the lookup functions could be perfect and the ingestion hook could
+        // still never call them, which is exactly the failure this half exists to catch. So the
+        // item is actually eaten, through the same `finishUsingItem` path the mixin hooks, and the
+        // body is read afterwards.
+        val deficient = AlimentData.HEALTHY.copy(
+            traceElements = TraceElements.HEALTHY.withIodine(0.30f).withVitaminC(30.0f),
+        )
+
+        // Vitamin C: a tomato is worth a carrot, which the suite already pins at +10.
+        player.setAttached(AlimentAttachments.DATA, deficient)
+        ItemStack(fdItem("tomato")!!, 1).finishUsingItem(level, player)
+        val afterTomato = player.getAttachedOrCreate(AlimentAttachments.DATA).traceElements.vitaminC
+        logger.info("SELFTEST farmersdelight vitamin C after a tomato = {}", afterTomato)
+        check("eating a Farmer's Delight tomato adds its vitamin C", abs(afterTomato - 40.0f) < 0.001f)
+
+        // Iodine: a kelp roll, and the glucose it carries as a dish.
+        player.setAttached(AlimentAttachments.DATA, deficient)
+        ItemStack(fdItem("kelp_roll")!!, 1).finishUsingItem(level, player)
+        val afterRoll = player.getAttachedOrCreate(AlimentAttachments.DATA)
+        check(
+            "eating a kelp roll adds its iodine",
+            abs(afterRoll.traceElements.iodine - 0.60f) < 0.001f,
+        )
+        check(
+            "and charges it as a mixed dish",
+            abs(afterRoll.glucose - (AlimentData.HEALTHY.glucose + AlimentData.GLUCOSE_PER_MIXED_DISH)) < 0.001f,
+        )
+
+        // Sodium: bacon is cured, so it moves sodium and chloride together.
+        player.setAttached(AlimentAttachments.DATA, AlimentData.HEALTHY)
+        ItemStack(fdItem("bacon")!!, 1).finishUsingItem(level, player)
+        val afterBacon = player.getAttachedOrCreate(AlimentAttachments.DATA).electrolytes
+        logger.info("SELFTEST farmersdelight sodium after bacon = {}", afterBacon.sodium)
+        check(
+            "eating Farmer's Delight bacon adds its curing salt",
+            abs(afterBacon.sodium - 140.8f) < 0.001f && abs(afterBacon.chloride - 101.8f) < 0.001f,
+        )
+
+        // Water: a soup is a drink, so it hydrates as a bowl of vanilla stew does.
+        player.setAttached(AlimentAttachments.DATA, AlimentData.HEALTHY.copy(water = 50f))
+        ItemStack(fdItem("bone_broth")!!, 1).finishUsingItem(level, player)
+        val afterBroth = player.getAttachedOrCreate(AlimentAttachments.DATA).water
+        logger.info("SELFTEST farmersdelight water after a bowl of bone broth = {}", afterBroth)
+        check("drinking a bowl of bone broth adds the standard drink's water", afterBroth > 50f)
+
+        // The negative control for the whole block: a Farmer's Delight food that carries *nothing*
+        // - a fried egg is protein and fat - must leave the body exactly where it was. If the hook
+        // were charging every Farmer's Delight item some default, this is the assertion that fails.
+        player.setAttached(AlimentAttachments.DATA, AlimentData.HEALTHY)
+        ItemStack(fdItem("fried_egg")!!, 1).finishUsingItem(level, player)
+        val afterEgg = player.getAttachedOrCreate(AlimentAttachments.DATA)
+        check(
+            "a fried egg carries no vitamin C, sodium or iodine",
+            afterEgg.traceElements.vitaminC == AlimentData.HEALTHY.traceElements.vitaminC &&
+                afterEgg.traceElements.iodine == AlimentData.HEALTHY.traceElements.iodine &&
+                afterEgg.electrolytes.sodium == AlimentData.HEALTHY.electrolytes.sodium,
+        )
+        check(
+            "and is charged as cooked meat and nothing more",
+            abs(afterEgg.glucose - (AlimentData.HEALTHY.glucose + AlimentData.GLUCOSE_PER_COOKED_MEAT)) < 0.001f,
+        )
+    }
+
+    /** An item by its Farmer's Delight registry id, or `null` if the mod does not define it. */
+    private fun fdItem(path: String): Item? = BuiltInRegistries.ITEM
+        .getOptional(Identifier.fromNamespaceAndPath("farmersdelight", path))
+        .orElse(null)
 
     /**
      * Asserts that one recipe takes a **real water bottle** and nothing else that is a potion.

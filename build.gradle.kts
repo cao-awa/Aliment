@@ -52,6 +52,17 @@ repositories {
         name = "Jared's maven"
         url = uri("https://maven.blamejared.com/")
     }
+    // Farmer's Delight is not on any of the mod mavens - not Jared's, not modmaven, not Shedaniel's -
+    // and not on CurseMaven either. It is published on Modrinth's maven, whose layout is
+    // `maven.modrinth:<project slug>:<version>`. The group filter keeps every other lookup away from
+    // it, so nothing else can start silently resolving from there.
+    maven {
+        name = "Modrinth"
+        url = uri("https://api.modrinth.com/maven")
+        content {
+            includeGroup("maven.modrinth")
+        }
+    }
 }
 
 /** The Scala runtime jars, merged into the mod jar. Declared before the dependencies that use it. */
@@ -84,6 +95,19 @@ dependencies {
 
     // JEI (Just Enough Items) API integration
     compileOnly("mezz.jei:jei-26.3-fabric-api:31.9.0.56")
+
+    // Farmer's Delight, for the optional food integration: every edible item it adds is given
+    // Aliment values in `compat/farmersdelight`. Compile-time only, so the mod still builds and runs
+    // with no Farmer's Delight installed, and the released jar neither ships nor demands it.
+    //
+    // The jar is unobfuscated - Minecraft 26.3 is unmapped, so a Fabric mod for it names
+    // `net.minecraft.world.item.Item` rather than an intermediary `class_1799` - which is why this
+    // needs no remapping and can be a plain `compileOnly` rather than a Loom mod configuration.
+    compileOnly("maven.modrinth:farmers-delight-refabricated:${project.property("farmersdelight_version")}")
+
+    // ... and in a development run only, the real thing, so the integration can be exercised and
+    // tested against the actual items rather than against a guess at them.
+    localRuntime("maven.modrinth:farmers-delight-refabricated:${project.property("farmersdelight_version")}")
 }
 
 tasks.processResources {

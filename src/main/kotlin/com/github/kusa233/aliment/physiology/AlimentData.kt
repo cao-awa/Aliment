@@ -686,6 +686,9 @@ data class AlimentData(
         @JvmField val GLUCOSE_PER_COOKED_MEAT: Float = AlimentModelBridge.GLUCOSE_PER_COOKED_MEAT
         @JvmField val GLUCOSE_PER_SWEET_DRINK: Float = AlimentModelBridge.GLUCOSE_PER_SWEET_DRINK
 
+        /** What one assembled dish - a stew, a sandwich, a plate of pasta - adds: a mixed plate. */
+        @JvmField val GLUCOSE_PER_MIXED_DISH: Float = AlimentModelBridge.GLUCOSE_PER_MIXED_DISH
+
         // ---------------------------------------------------------------- naringin & CYP3A4
 
         /** The most naringin a body can carry (0..10): ten grapefruit slices. */

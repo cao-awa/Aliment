@@ -1,6 +1,7 @@
 package com.github.kusa233.aliment.physiology
 
 import com.github.kusa233.aliment.advancement.AlimentAdvancements
+import com.github.kusa233.aliment.compat.farmersdelight.FarmersDelightNutrition
 import com.github.kusa233.aliment.registry.AlimentItems
 import com.github.kusa233.aliment.world.item.BeerItem
 import com.github.kusa233.aliment.world.item.GrapeWineItem
@@ -245,6 +246,14 @@ object AlimentIngestion {
             else -> Unit
         }
 
+        // Farmer's Delight's own foods, if it is installed. This is a no-op - a 0 and a skipped
+        // branch - when it is not, and the class behind it is never even loaded in that case; see
+        // [FarmersDelightNutrition].
+        val fdSodium = FarmersDelightNutrition.sodiumFor(stack.item)
+        if (fdSodium > 0f) {
+            data = AlimentPhysiology.salt(data, fdSodium, fdSodium)
+        }
+
         if (isWillowSoup(stack.item)) {
             data = AlimentPhysiology.dose(data, SALICIN_PER_SERVING)
         }
@@ -341,6 +350,18 @@ object AlimentIngestion {
             AlimentItems.SEAWEED -> data = AlimentPhysiology.vitaminC(data, SEAWEED_VITAMIN_C)
             AlimentItems.COOKED_SEAWEED -> data = AlimentPhysiology.vitaminC(data, COOKED_SEAWEED_VITAMIN_C)
             else -> Unit
+        }
+
+        // Farmer's Delight's foods carry vitamin C and iodine the same way the mod's own plants do:
+        // a tomato and a plate of ratatouille are plant food, and a kelp roll is seaweed and rice.
+        // Both lookups are 0 without the mod, so nothing happens for a player who does not have it.
+        val fdVitaminC = FarmersDelightNutrition.vitaminCFor(stack.item)
+        if (fdVitaminC > 0f) {
+            data = AlimentPhysiology.vitaminC(data, fdVitaminC)
+        }
+        val fdIodine = FarmersDelightNutrition.iodineFor(stack.item)
+        if (fdIodine > 0f) {
+            data = AlimentPhysiology.iodine(data, fdIodine)
         }
 
         // Everything edible is carbohydrate or becomes it, and the body stores none of it: this is
@@ -466,7 +487,9 @@ object AlimentIngestion {
         item in COOKED_MEAT -> AlimentData.GLUCOSE_PER_COOKED_MEAT
         item in RAW_MEAT -> AlimentData.GLUCOSE_PER_RAW_MEAT
         item in PLANT_FOOD -> AlimentData.GLUCOSE_PER_PLANT_FOOD
-        else -> 0f
+        // Farmer's Delight's food is charged by the same tiers, so one of its stews costs the body
+        // what a vanilla stew costs, and its bread what vanilla bread costs. 0 without the mod.
+        else -> FarmersDelightNutrition.glucoseFor(item)
     }
 
     /**
@@ -506,7 +529,10 @@ object AlimentIngestion {
         item === AlimentItems.CRUDE_SALT_WILLOW_BARK_SOUP ||
         item === AlimentItems.SALT_WILLOW_BARK_SOUP ||
         item === AlimentItems.CRUDE_SALT_RAW_WILLOW_BARK_SOUP ||
-        item === AlimentItems.SALT_RAW_WILLOW_BARK_SOUP
+        item === AlimentItems.SALT_RAW_WILLOW_BARK_SOUP ||
+        // Farmer's Delight's bottled milk, its three sweetened drinks, and its soups - a bowl of
+        // stew is drunk as much as eaten, which is how vanilla counts its own. False without it.
+        FarmersDelightNutrition.isDrink(item)
 
     /**
      * Untreated swamp water, and its salted versions, carry the risks below.

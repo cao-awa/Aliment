@@ -668,10 +668,8 @@ on the break, and the pick is what you do when you would rather keep the plant. 
 is a wasted seed: before `age=3` the vine drops nothing to either harvest, and a right click on it is
 passed through rather than swallowed, so bone meal still lands.
 A bunch is itself edible:
-2 hunger, 1.0 saturation, always edible. **With Farmer's Delight installed** a knife cuts one bunch
-into three seeds on a cutting board, and its cooking pot can also boil grapefruit slices and sugar
-into grapefruit juice. Those two recipes are gated on Farmer's Delight being present and are simply
-absent without it.
+2 hunger, 1.0 saturation, always edible. Cutting it on a board and boiling grapefruit into juice are
+recipes that need **Farmer's Delight** - see §22, which is also where that mod's own larder is priced.
 
 **The yeast.** Shapeless: wheat + sugar + brown mushroom.
 
@@ -775,7 +773,37 @@ Dried kelp is the vanilla alternative at +0.20. See §7 for what a deficit does.
 
 ---
 
-## 22. Creative Mode and Death
+## 22. Farmer's Delight
+
+Aliment does not require that mod and does not bundle it: the dependency is **compile-time only**.
+Aliment is built against its foods so it can price them, and a game without it boots, plays and passes
+the same tests - the two recipes below simply do not exist. It is an integration, not a requirement.
+
+| Gated recipe | Station | Yields |
+| --- | --- | --- |
+| A bunch of grapes cut with a **knife** | cutting board | 3 grape seeds |
+| One grapefruit slice and sugar, drawn into a **glass bottle** | **cooking pot** | grapefruit juice |
+
+**Its larder feeds the model.** Eating is eating, so a Farmer's Delight meal moves the same numbers a
+vanilla one does, and all **80** of its edible foods and drinks are priced.
+
+| What | Charge | Examples |
+| --- | --- | --- |
+| Cured meat | **sodium and chloride** | the bacon and ham cuts +0.8, a bacon sandwich or bacon and eggs +1.2, honey-glazed ham +2.0 mmol/L |
+| Vegetables and salads | **vitamin C** | a tomato +10, worth a carrot; cabbage +8, onion and pumpkin slice +6; the salads are the richest at +14 to +18 |
+| Kelp rolls | **iodine** | a roll +0.30 µmol/L, a slice exactly a third of one |
+| Everything edible | **blood glucose** | by what it is made of: plant food 0.4, raw meat 0.4, cooked meat 0.5, an assembled plate **0.6**, bread and sweets 0.7 |
+| Bottled milk, three sweetened drinks, nine soups | **water** | one drink's worth, as vanilla's milk bucket and mushroom stew |
+
+Its cured meat is the **only** salt in that mod - it adds no salt item and no recipe that uses one -
+so a rasher is salty without being a spoonful of salt, and every cured food sits below a serving of
+Aliment's own. Its raw dough, raw pasta, chicken cuts and nether salad carry the food-poisoning risk
+raw meat does. See §13 for the glucose bands, §15 for vitamin C, §21 for iodine and §7 for what a
+deficit does.
+
+---
+
+## 23. Creative Mode and Death
 
 **Creative mode freezes the whole system.** Nothing advances - pathogens neither grow nor clear,
 temperature does not move, drugs are not metabolised - no effects are applied, no damage is dealt, no
@@ -789,7 +817,7 @@ temperature 37, water 80, iodine normal. Dying is the only way to throw the mode
 
 ---
 
-## 23. Advancements
+## 24. Advancements
 
 The mod has its own advancement tab, rooted at the first piece of willow bark.
 
@@ -805,7 +833,7 @@ The mod has its own advancement tab, rooted at the first piece of willow bark.
 
 ---
 
-## 24. Diagnostic Commands
+## 25. Diagnostic Commands
 
 ```
 /aliment status                 every physiological metric, in one readout
@@ -819,7 +847,7 @@ and metabolised within one game day.
 
 ---
 
-## 25. Common Pitfalls
+## 26. Common Pitfalls
 
 1. **Sea water is not dirty water.** Nothing happens at the time; the price is the sodium, and it
    takes two bottles to leave the reference range.

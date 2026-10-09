@@ -8,9 +8,11 @@
     }
   ],
   "type": "farmersdelight:cooking",
+  "container": {
+    "id": "minecraft:glass_bottle"
+  },
   "experience": 1.0,
   "ingredients": [
-    "aliment:grapefruit_slice",
     "aliment:grapefruit_slice",
     "minecraft:sugar"
   ],

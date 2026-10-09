@@ -37,7 +37,12 @@ Instead of treating player health as an abstract hitpoint bar that depletes inst
 - **Fermentation and Distillation**: Assemble glass fermentation tanks and condenser pipes to ferment mash into wine and distill concentrated ethanol. The tank takes wheat for beer, sugar for 7% wine, and grapes with sugar for a lighter 5% grape wine that bottles straight out.
 - **Grape Vines**: A four-stage crop that grows wild across the plains and temperate forests and sows onto any soil a vanilla crop accepts, farmland included. Right-click a ripe vine to pick 1-3 grapes and leave the plant standing one stage short of ripe, so a vineyard is something you return to; breaking it pays the same. One grape yields two seeds.
 - **Willow Woodset**: Complete decorative set featuring willow wood blocks, planks, hanging signs, and cascading hanging willow vines.
-- **Optional Farmer's Delight Integration**: With that mod installed, a knife cuts grapes into seeds on its cutting board and its cooking pot boils grapefruit juice. Nothing here is required to play: the integration is data-only, adds no dependency, and Aliment publishes conventional `c:` tags either way.
+
+### Optional Farmer's Delight Integration
+- **No dependency required**: Aliment is built against Farmer's Delight at compile time so it can price that mod's food, and bundles none of it. The integration is one-way and entirely optional - a game without Farmer's Delight boots, plays and passes the same test suite, and Aliment publishes its conventional `c:` tags either way.
+- **Recipes**: with that mod installed, a knife cuts a bunch of grapes into three seeds on its cutting board, and its cooking pot boils one grapefruit slice with sugar and draws the juice into a glass bottle you supply. Without it those two recipes simply do not exist.
+- **Every edible item is priced**: all **80** of its foods and drinks feed the physiology instead of sitting behind one generic food value. Cured bacon and ham carry sodium and chloride - below a serving of Aliment's own salt, because a rasher is salty without being a spoonful of salt; its vegetables and salads carry vitamin C, a tomato being worth a carrot; its two kelp rolls carry iodine, a slice exactly a third of a roll's; every dish is charged blood glucose by what it is made of, with assembled plates taking a band of their own between plant food and bread; and its bottled milk, sweetened drinks and nine soups hydrate as vanilla's milk bucket does.
+- **Risk carries over too**: its raw dough, raw pasta, chicken cuts and nether salad can infect you exactly as raw meat can.
 
 ---
 

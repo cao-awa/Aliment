@@ -311,6 +311,9 @@ public final class AlimentModelBridge {
     public static final float GLUCOSE_PER_COOKED_MEAT = ModelConstants.GLUCOSE_PER_COOKED_MEAT();
     public static final float GLUCOSE_PER_SWEET_DRINK = ModelConstants.GLUCOSE_PER_SWEET_DRINK();
 
+    /** What one assembled dish - a stew, a sandwich, a plate of pasta - adds: a mixed plate. */
+    public static final float GLUCOSE_PER_MIXED_DISH = ModelConstants.GLUCOSE_PER_MIXED_DISH();
+
     // ================================================================== the reference ranges
 
     /**
