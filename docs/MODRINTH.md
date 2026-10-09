@@ -6,8 +6,6 @@ Aliment is a realistic physiology, pathology, pharmacology, and herbal medicine 
 
 Instead of treating player health as an abstract hitpoint bar that depletes instantly upon eating bad food, Aliment simulates continuous physiological kinetics, multi-pathway immune responses, electrolyte balances, and pharmacodynamics with clinical fidelity.
 
----
-
 ## Key Features
 
 ### Dynamic Physiology and Nutrition
