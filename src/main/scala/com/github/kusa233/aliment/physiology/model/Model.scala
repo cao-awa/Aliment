@@ -308,9 +308,9 @@ final case class ModelEnzymes(
      * CYP3A4 activity, 0..[ModelConstants.CYP3A4_MAX], and [ModelConstants.CYP3A4_NORMAL] in a body
      * that has eaten no grapefruit.
      *
-     * It is a step function of [ModelDrugs.naringin] and of nothing else, so it is not a quantity
-     * with a life of its own: it is read off the naringin each tick and never disagrees with it by
-     * more than one tick.
+     * It is a curve over [ModelDrugs.naringin] and of nothing else, so it is not a quantity with a
+     * life of its own: it is read off the naringin each tick and never disagrees with it by more
+     * than one tick.
      */
     @BeanProperty cyp3a4: Float = ModelConstants.CYP3A4_NORMAL,
 ) {
@@ -318,7 +318,7 @@ final case class ModelEnzymes(
   /**
    * How fast this body clears what CYP3A4 clears, as a fraction of a clean body's rate.
    *
-   * Exactly `1.0` at [ModelConstants.CYP3A4_NORMAL] and `0.12` at the deepest naringin step. It is
+   * Exactly `1.0` at [ModelConstants.CYP3A4_NORMAL] and `0.12` at the deepest naringin knot. It is
    * the form a clearance rate actually wants, so the division happens here once rather than at each
    * call site - and a rate that reads it cannot accidentally forget to.
    */
@@ -533,21 +533,25 @@ object ModelConstants {
   val CYP3A4_MAX: Float = 100f
 
   /**
-   * The four naringin thresholds, and the CYP3A4 activity each one leaves behind.
+   * The four naringin knots the inhibition curve is pinned to, and the CYP3A4 activity at each.
    *
-   * The first three are "above this", the last is "at or above": eight slices is already as bad as
-   * it gets, and 8.5 is where that starts. Read together the two lists are one step function - see
-   * `Physiology.cyp3a4For` - so the index only ever holds one of five values.
+   * Together with naringin 0 and [CYP3A4_NORMAL] these are calibration points rather than thresholds:
+   * the activity *is* each of these values at the naringin written beside it and slides from one to
+   * the next, so the index is continuous instead of snapping between levels. Eight slices (8.5) is
+   * the deepest knot and the curve is flat from there to [NARINGIN_CAP], which is where "as bad as it
+   * gets" sits now that it is the bottom of a descent rather than the far side of a jump.
+   *
+   * The two lists are read together by `Physiology.cyp3a4For`.
    */
-  val NARINGIN_CYP_STEP_1: Float = 2f
-  val NARINGIN_CYP_STEP_2: Float = 4f
-  val NARINGIN_CYP_STEP_3: Float = 7f
-  val NARINGIN_CYP_STEP_4: Float = 8.5f
+  val NARINGIN_CYP_KNOT_1: Float = 2f
+  val NARINGIN_CYP_KNOT_2: Float = 4f
+  val NARINGIN_CYP_KNOT_3: Float = 7f
+  val NARINGIN_CYP_KNOT_4: Float = 8.5f
 
-  val CYP3A4_AT_STEP_1: Float = 60f
-  val CYP3A4_AT_STEP_2: Float = 45f
-  val CYP3A4_AT_STEP_3: Float = 25f
-  val CYP3A4_AT_STEP_4: Float = 10f
+  val CYP3A4_AT_KNOT_1: Float = 60f
+  val CYP3A4_AT_KNOT_2: Float = 45f
+  val CYP3A4_AT_KNOT_3: Float = 25f
+  val CYP3A4_AT_KNOT_4: Float = 10f
 
   // ---------------------------------------------------------------- ethanol
 

@@ -496,34 +496,47 @@ if (drugConc >= 3.0f) {
 naringin = Math.max(naringin - 10.0f / 24000f, 0.0f) // -4.167e-4 / tick
 ```
 
-CYP3A4 范围 **0.0 ~ 100.0**，在从未吃过葡萄柚的身体里是 **85**。它是香柠檬素的**阶梯函数**
-而不是曲线，所以这个指标只会有五个取值之一，下面这张表就是它的全部：
+CYP3A4 范围 **0.0 ~ 100.0**，在从未吃过葡萄柚的身体里是 **85**。它是香柠檬素上的**曲线**
+而不是阶梯，所以指标是从一档滑向下一档，而不是瞬间跳过去；多吃一片，总归会从肝脏再多拿走一点。
+下面这些标定点就是它的全部：
 
 | 香柠檬素 | CYP3A4 | 黄连素被清除的速率 |
 | --- | --- | --- |
-| ≤ 2 | **85** | 1.00x——模型当初写下的速率 |
-| > 2 | **60** | 0.71x |
-| > 4 | **45** | 0.53x |
-| > 7 | **25** | 0.29x |
-| ≥ 8.5 | **10** | 0.12x |
+| 0 | **85** | 1.00x——模型当初写下的速率 |
+| 2 | **60** | 0.71x |
+| 4 | **45** | 0.53x |
+| 7 | **25** | 0.29x |
+| 8.5 及以上 | **10** | 0.12x |
+
+两点之间用 smoothstep 插值，它的值与斜率在两端都为零，所以曲线在**每个**标定点上都是平的，
+两段相接处也没有折角。超过 8.5 后保持在 10，这正是"八片就是抑制的最深处"的原因：
 
 ```scala
-def cyp3a4For(naringin: Float): Float =
-  if (naringin >= 8.5f) 10f
-  else if (naringin > 7f) 25f
-  else if (naringin > 4f) 45f
-  else if (naringin > 2f) 60f
-  else 85f
+// 各节点，按香柠檬素升序。
+val knots = Array((0f, 85f), (2f, 60f), (4f, 45f), (7f, 25f), (8.5f, 10f))
+
+def cyp3a4For(naringin: Float): Float = {
+  val load = Math.max(naringin, 0f)
+  var segment = 0
+  while (segment < knots.length - 1 && load > knots(segment + 1)._1) segment += 1
+  if (segment >= knots.length - 1) knots(knots.length - 1)._2
+  else {
+    val (fromNaringin, fromActivity) = knots(segment)
+    val (toNaringin, toActivity) = knots(segment + 1)
+    val t = clamp((load - fromNaringin) / (toNaringin - fromNaringin), 0f, 1f)
+    fromActivity + (toActivity - fromActivity) * (t * t * (3f - 2f * t))
+  }
+}
 ```
 
 酶指标是**由 tick 写的，不是由吃写的**：果片只改动 `naringin`，下一 tick 才从它读出 `cyp3a4`，
 所以两者最多只会在一个 tick 内不一致，绝不会更久。这也正是指标能自己恢复的原因——
-香柠檬素一没，函数自己就返回 85，不需要另立一项恢复速率去跟它对齐。
+香柠檬素一没，曲线自己就返回 85，不需要另立一项恢复速率去跟它对齐。
 
 这个效果有多大值得直说，因为它是模组里第一个"玩家吃下的东西会改变另一样东西持续多久"的相互作用。
 一份黄连（**1.1 黄连素**）单独吃下去约 **9,400 tick** 清完；先吃九个葡萄柚片再吃同一份黄连，
-就要约 **17,800 tick**——接近翻倍，因为在那段时间的前半段，肝脏是按 10 到 45 在跑，而不是 85。
-香柠檬素只持续一天，正是这一点给它封了顶：如果它再短些，最深的那一档就会在剂量生命的大半时间里
+就要约 **20,100 tick**——比两倍还多，因为在那段时间的前半段，肝脏是从 10 一路爬回 85，而不是满速运转。
+香柠檬素只持续一天，正是这一点给它封了顶：如果它再短些，最深的那个节点就会在剂量生命的大半时间里
 什么都不做。
 
 ### 水分与出汗消耗模型

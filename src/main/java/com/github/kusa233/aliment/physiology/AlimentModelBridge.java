@@ -245,16 +245,16 @@ public final class AlimentModelBridge {
     public static final float CYP3A4_MIN = ModelConstants.CYP3A4_MIN();
     public static final float CYP3A4_MAX = ModelConstants.CYP3A4_MAX();
 
-    /** The four naringin steps, and the CYP3A4 activity each one leaves behind. */
-    public static final float NARINGIN_CYP_STEP_1 = ModelConstants.NARINGIN_CYP_STEP_1();
-    public static final float NARINGIN_CYP_STEP_2 = ModelConstants.NARINGIN_CYP_STEP_2();
-    public static final float NARINGIN_CYP_STEP_3 = ModelConstants.NARINGIN_CYP_STEP_3();
-    public static final float NARINGIN_CYP_STEP_4 = ModelConstants.NARINGIN_CYP_STEP_4();
+    /** The four naringin knots of the inhibition curve, and the CYP3A4 activity at each. */
+    public static final float NARINGIN_CYP_KNOT_1 = ModelConstants.NARINGIN_CYP_KNOT_1();
+    public static final float NARINGIN_CYP_KNOT_2 = ModelConstants.NARINGIN_CYP_KNOT_2();
+    public static final float NARINGIN_CYP_KNOT_3 = ModelConstants.NARINGIN_CYP_KNOT_3();
+    public static final float NARINGIN_CYP_KNOT_4 = ModelConstants.NARINGIN_CYP_KNOT_4();
 
-    public static final float CYP3A4_AT_STEP_1 = ModelConstants.CYP3A4_AT_STEP_1();
-    public static final float CYP3A4_AT_STEP_2 = ModelConstants.CYP3A4_AT_STEP_2();
-    public static final float CYP3A4_AT_STEP_3 = ModelConstants.CYP3A4_AT_STEP_3();
-    public static final float CYP3A4_AT_STEP_4 = ModelConstants.CYP3A4_AT_STEP_4();
+    public static final float CYP3A4_AT_KNOT_1 = ModelConstants.CYP3A4_AT_KNOT_1();
+    public static final float CYP3A4_AT_KNOT_2 = ModelConstants.CYP3A4_AT_KNOT_2();
+    public static final float CYP3A4_AT_KNOT_3 = ModelConstants.CYP3A4_AT_KNOT_3();
+    public static final float CYP3A4_AT_KNOT_4 = ModelConstants.CYP3A4_AT_KNOT_4();
 
     // ---------------------------------------------------------------- ethanol
 
@@ -714,8 +714,8 @@ public final class AlimentModelBridge {
     /**
      * Adds naringin from grapefruit, capped.
      *
-     * The CYP3A4 index follows on the next tick rather than here, so that the step function stays in
-     * one place.
+     * The CYP3A4 index follows on the next tick rather than here, so that the curve stays in one
+     * place.
      */
     public static AlimentData addNaringin(AlimentData data, float amount) {
         return fromModel(Physiology.addNaringin(toModel(data), amount));

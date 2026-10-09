@@ -158,58 +158,93 @@ class AlimentPhysiologySelfTest : ModInitializer {
      */
     private fun naringinAndCyp3a4() {
         logger.info(
-            "PHYS naringin cap {}; cyp3a4 normal {} range {}-{}; steps {} {} {} {} -> {} {} {} {}",
+            "PHYS naringin cap {}; cyp3a4 normal {} range {}-{}; knots {} {} {} {} -> {} {} {} {}",
             AlimentData.NARINGIN_CAP, AlimentData.CYP3A4_NORMAL, AlimentData.CYP3A4_MIN,
-            AlimentData.CYP3A4_MAX, AlimentData.NARINGIN_CYP_STEP_1, AlimentData.NARINGIN_CYP_STEP_2,
-            AlimentData.NARINGIN_CYP_STEP_3, AlimentData.NARINGIN_CYP_STEP_4,
-            AlimentData.CYP3A4_AT_STEP_1, AlimentData.CYP3A4_AT_STEP_2,
-            AlimentData.CYP3A4_AT_STEP_3, AlimentData.CYP3A4_AT_STEP_4,
+            AlimentData.CYP3A4_MAX, AlimentData.NARINGIN_CYP_KNOT_1, AlimentData.NARINGIN_CYP_KNOT_2,
+            AlimentData.NARINGIN_CYP_KNOT_3, AlimentData.NARINGIN_CYP_KNOT_4,
+            AlimentData.CYP3A4_AT_KNOT_1, AlimentData.CYP3A4_AT_KNOT_2,
+            AlimentData.CYP3A4_AT_KNOT_3, AlimentData.CYP3A4_AT_KNOT_4,
         )
         check("naringin runs 0..10", AlimentData.NARINGIN_CAP == 10f)
         check("CYP3A4 defaults to 85", AlimentData.CYP3A4_NORMAL == 85f)
         check("and is reported on a 0..100 scale", AlimentData.CYP3A4_MIN == 0f && AlimentData.CYP3A4_MAX == 100f)
 
-        // Each threshold from both sides. The first three are "past this" and the fourth is "at or
-        // above", so 2.0 still runs at the full 85 while 2.1 has already dropped.
-        val steps = listOf(
-            Triple(0f, 85f, "nothing eaten"),
-            Triple(2f, 85f, "at the first threshold"),
-            Triple(2.1f, 60f, "past 2"),
-            Triple(4f, 60f, "at the second threshold"),
-            Triple(4.1f, 45f, "past 4"),
-            Triple(7f, 45f, "at the third threshold"),
-            Triple(7.1f, 25f, "past 7"),
-            Triple(8.4f, 25f, "just short of 8.5"),
-            Triple(8.5f, 10f, "at 8.5"),
-            Triple(10f, 10f, "at the cap"),
+        // The curve is pinned to its calibration points: the activity is exactly the calibrated value
+        // at the naringin it was calibrated for. These used to be thresholds - the far side of a jump
+        // - and are now simply where the descent passes through.
+        val knots = listOf(
+            Triple(0f, AlimentData.CYP3A4_NORMAL, "an empty body"),
+            Triple(AlimentData.NARINGIN_CYP_KNOT_1, AlimentData.CYP3A4_AT_KNOT_1, "two slices"),
+            Triple(AlimentData.NARINGIN_CYP_KNOT_2, AlimentData.CYP3A4_AT_KNOT_2, "four slices"),
+            Triple(AlimentData.NARINGIN_CYP_KNOT_3, AlimentData.CYP3A4_AT_KNOT_3, "seven slices"),
+            Triple(AlimentData.NARINGIN_CYP_KNOT_4, AlimentData.CYP3A4_AT_KNOT_4, "eight and a half"),
+            Triple(AlimentData.NARINGIN_CAP, AlimentData.CYP3A4_AT_KNOT_4, "the cap"),
         )
-        for ((naringin, expected, label) in steps) {
+        for ((naringin, expected, label) in knots) {
             val actual = AlimentPhysiology.cyp3a4For(naringin)
             logger.info("PHYS cyp3a4 at naringin {}: {} ({})", naringin, actual, label)
             check("$label leaves CYP3A4 at $expected", actual == expected)
         }
 
-        // The property behind those ten cases: sweeping the whole range never produces a sixth value.
-        val allowed = setOf(
-            AlimentData.CYP3A4_NORMAL,
-            AlimentData.CYP3A4_AT_STEP_1,
-            AlimentData.CYP3A4_AT_STEP_2,
-            AlimentData.CYP3A4_AT_STEP_3,
-            AlimentData.CYP3A4_AT_STEP_4,
+        // The property behind those six cases, and the whole point of the curve: sweeping the range
+        // gives a continuous descent rather than a sequence of levels. A step function fails this
+        // outright - it moves 25 points in a single one-hundredth of a slice - so the bound is what
+        // makes "no jumps" a checked claim rather than a comment.
+        //
+        // The bound is the steepest segment's average slope times smoothstep's peak factor: its
+        // derivative is `6t(1-t)`, which is 1.5 at the midpoint, so no probe step anywhere can move
+        // more than 1.5x the segment's own rise per unit of naringin.
+        val probe = 0.01f
+        val smoothstepPeak = 1.5f
+        val steepestPerUnit = smoothstepPeak * maxOf(
+            (AlimentData.CYP3A4_NORMAL - AlimentData.CYP3A4_AT_KNOT_1) / AlimentData.NARINGIN_CYP_KNOT_1,
+            (AlimentData.CYP3A4_AT_KNOT_1 - AlimentData.CYP3A4_AT_KNOT_2) /
+                (AlimentData.NARINGIN_CYP_KNOT_2 - AlimentData.NARINGIN_CYP_KNOT_1),
+            (AlimentData.CYP3A4_AT_KNOT_2 - AlimentData.CYP3A4_AT_KNOT_3) /
+                (AlimentData.NARINGIN_CYP_KNOT_3 - AlimentData.NARINGIN_CYP_KNOT_2),
+            (AlimentData.CYP3A4_AT_KNOT_3 - AlimentData.CYP3A4_AT_KNOT_4) /
+                (AlimentData.NARINGIN_CYP_KNOT_4 - AlimentData.NARINGIN_CYP_KNOT_3),
         )
-        var offGrid = 0
-        var swept = 0f
+        val bound = steepestPerUnit * probe
+        var previous = AlimentPhysiology.cyp3a4For(0f)
+        var biggestMove = 0f
+        var rises = 0
+        var outOfRange = 0
+        var swept = probe
         while (swept <= AlimentData.NARINGIN_CAP) {
-            if (AlimentPhysiology.cyp3a4For(swept) !in allowed) offGrid++
-            swept += 0.01f
+            val actual = AlimentPhysiology.cyp3a4For(swept)
+            val move = actual - previous
+            if (abs(move) > abs(biggestMove)) biggestMove = move
+            if (move > 1e-6f) rises++
+            if (actual < AlimentData.CYP3A4_MIN || actual > AlimentData.CYP3A4_MAX) outOfRange++
+            previous = actual
+            swept += probe
         }
-        check("sweeping 0..10 never leaves the five steps", offGrid == 0)
-        check("and every step is inside the reported range", allowed.all { it in AlimentData.CYP3A4_MIN..AlimentData.CYP3A4_MAX })
+        logger.info("PHYS cyp3a4 largest move over a {} step: {} (bound {})", probe, biggestMove, bound)
+        check("sweeping the range never jumps: no step moves more than the steepest slope allows", abs(biggestMove) <= bound + 1e-3f)
+        check("and the descent never turns back up", rises == 0)
+        check("and it stays inside the reported range throughout", outOfRange == 0)
+
+        // The knots are only meaningful if they descend, and the curve holds past the last one, which
+        // is what makes eight slices the deepest the inhibition goes rather than just the latest
+        // change.
         check(
-            "the steps only ever go down as the grapefruit goes in",
-            AlimentData.CYP3A4_AT_STEP_1 > AlimentData.CYP3A4_AT_STEP_2 &&
-                AlimentData.CYP3A4_AT_STEP_2 > AlimentData.CYP3A4_AT_STEP_3 &&
-                AlimentData.CYP3A4_AT_STEP_3 > AlimentData.CYP3A4_AT_STEP_4,
+            "the knots only ever go down as the grapefruit goes in",
+            AlimentData.CYP3A4_NORMAL > AlimentData.CYP3A4_AT_KNOT_1 &&
+                AlimentData.CYP3A4_AT_KNOT_1 > AlimentData.CYP3A4_AT_KNOT_2 &&
+                AlimentData.CYP3A4_AT_KNOT_2 > AlimentData.CYP3A4_AT_KNOT_3 &&
+                AlimentData.CYP3A4_AT_KNOT_3 > AlimentData.CYP3A4_AT_KNOT_4,
+        )
+        check(
+            "and they sit at ascending naringin, so the curve never doubles back",
+            AlimentData.NARINGIN_CYP_KNOT_1 < AlimentData.NARINGIN_CYP_KNOT_2 &&
+                AlimentData.NARINGIN_CYP_KNOT_2 < AlimentData.NARINGIN_CYP_KNOT_3 &&
+                AlimentData.NARINGIN_CYP_KNOT_3 < AlimentData.NARINGIN_CYP_KNOT_4,
+        )
+        check(
+            "and from the last knot to the cap it holds at the bottom",
+            AlimentPhysiology.cyp3a4For(AlimentData.NARINGIN_CYP_KNOT_4) == AlimentData.CYP3A4_AT_KNOT_4 &&
+                AlimentPhysiology.cyp3a4For(AlimentData.NARINGIN_CAP) == AlimentData.CYP3A4_AT_KNOT_4,
         )
 
         // Eating grapefruit fills the index and stops at the cap.
@@ -222,7 +257,7 @@ class AlimentPhysiologySelfTest : ModInitializer {
         // The tick is what reads the index off the naringin; eating only moves the naringin.
         val justEaten = AlimentPhysiology.addNaringin(AlimentData.HEALTHY, AlimentData.NARINGIN_CAP)
         check("the index is untouched the instant the fruit is swallowed", justEaten.cyp3a4 == AlimentData.CYP3A4_NORMAL)
-        check("and the next tick reads it off the naringin", AlimentPhysiology.tick(justEaten).cyp3a4 == AlimentData.CYP3A4_AT_STEP_4)
+        check("and the next tick reads it off the naringin", AlimentPhysiology.tick(justEaten).cyp3a4 == AlimentData.CYP3A4_AT_KNOT_4)
 
         // Half way through the stated metabolism the body should be carrying half of it, which pins
         // the rate itself without depending on how the rounding accumulates over the full run.
@@ -251,7 +286,7 @@ class AlimentPhysiologySelfTest : ModInitializer {
         check("and the enzyme is back to normal once it has", clearing.cyp3a4 == AlimentData.CYP3A4_NORMAL)
 
         // Berberine is cleared by CYP3A4, so at the baseline it falls at exactly the rate the model
-        // has always used, and at each step below it falls by that step's fraction of it.
+        // has always used, and below it by the fraction the index reports.
         //
         // The tolerance is 1e-6 rather than something tighter because the fall is measured as
         // `1f - after`, and subtracting two numbers that are both close to 1 leaves float residue of
@@ -266,12 +301,20 @@ class AlimentPhysiologySelfTest : ModInitializer {
             abs(baselineFall - AlimentData.BERBERINE_DECAY_PER_TICK) < 1e-6f,
         )
 
-        for ((naringin, cyp3a4) in listOf(3f to 60f, 5f to 45f, 7.5f to 25f, 9f to 10f)) {
+        // The expected fall is read off the ticked state's *own* index rather than a table, because
+        // that is what checks the wiring: the rate the clearance used and the index the body reports
+        // can only agree if both were read from the same curve. A stale table here would pin the
+        // numbers while the model drifted away from them.
+        for (naringin in listOf(3f, 5f, 7.5f, 9f, 10f)) {
             val slow = AlimentPhysiology.tick(AlimentData.HEALTHY.copy(berberine = berberineStart, naringin = naringin))
             val fall = berberineStart - slow.berberine
-            val expected = AlimentData.BERBERINE_DECAY_PER_TICK * (cyp3a4 / AlimentData.CYP3A4_NORMAL)
-            logger.info("PHYS berberine falls {} in a tick at CYP3A4 {} (expected {})", fall, cyp3a4, expected)
-            check("at CYP3A4 $cyp3a4 berberine falls proportionally slower", abs(fall - expected) < 1e-6f)
+            val expected = AlimentData.BERBERINE_DECAY_PER_TICK * (slow.cyp3a4 / AlimentData.CYP3A4_NORMAL)
+            logger.info(
+                "PHYS berberine falls {} in a tick at naringin {} through CYP3A4 {} (expected {})",
+                fall, naringin, slow.cyp3a4, expected,
+            )
+            check("at naringin $naringin berberine falls at the rate the reported index implies", abs(fall - expected) < 1e-6f)
+            check("and that index is part of the way down, not at the baseline", slow.cyp3a4 < AlimentData.CYP3A4_NORMAL)
         }
 
         // End to end: one coptis herb, cleared with and without a body full of grapefruit.
@@ -283,7 +326,7 @@ class AlimentPhysiologySelfTest : ModInitializer {
         check("a single coptis herb clears in about 9400 ticks on its own", aloneTicks in 9000..10000)
         check("grapefruit makes the same dose last longer", withFruitTicks > aloneTicks)
         // Naringin clears in a game day, so the enzyme is only held down for part of the dose's
-        // life: the effect is large but nothing like the eight-fold the deepest step would give on
+        // life: the effect is large but nothing like the eight-fold the deepest knot would give on
         // its own. Half again is the floor that keeps this a check rather than a restatement.
         check("and it is a large difference, not a rounding one", withFruitTicks > aloneTicks * 1.5)
     }
@@ -2570,8 +2613,8 @@ class AlimentPhysiologySelfTest : ModInitializer {
         logger.info("PHYS eleven slices: naringin {} cyp3a4 {}", full.naringin, AlimentPhysiology.tick(full).cyp3a4)
         check("eleven slices still leave the body at the naringin cap", full.naringin == AlimentData.NARINGIN_CAP)
         check(
-            "and the next tick puts the enzyme at the deepest step",
-            AlimentPhysiology.tick(full).cyp3a4 == AlimentData.CYP3A4_AT_STEP_4,
+            "and the next tick puts the enzyme at the deepest knot",
+            AlimentPhysiology.tick(full).cyp3a4 == AlimentData.CYP3A4_AT_KNOT_4,
         )
 
         player.setAttached(AlimentAttachments.DATA, AlimentData.HEALTHY)

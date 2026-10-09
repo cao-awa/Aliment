@@ -557,20 +557,48 @@ object Physiology {
   // ------------------------------------------------------------------ the tick
 
   /**
+   * The calibration points of the CYP3A4 inhibition curve, as (naringin, activity) pairs in ascending
+   * naringin order: a clean body first, then the four knots [ModelConstants] carries.
+   */
+  private final val CYP3A4_KNOTS: Array[(Float, Float)] = Array(
+    (0f, ModelConstants.CYP3A4_NORMAL),
+    (ModelConstants.NARINGIN_CYP_KNOT_1, ModelConstants.CYP3A4_AT_KNOT_1),
+    (ModelConstants.NARINGIN_CYP_KNOT_2, ModelConstants.CYP3A4_AT_KNOT_2),
+    (ModelConstants.NARINGIN_CYP_KNOT_3, ModelConstants.CYP3A4_AT_KNOT_3),
+    (ModelConstants.NARINGIN_CYP_KNOT_4, ModelConstants.CYP3A4_AT_KNOT_4),
+  )
+
+  /**
    * How active the liver's CYP3A4 is at a given naringin load, on the 0..100 scale the index is
    * reported in.
    *
-   * A step function, not a curve: each threshold is one more grapefruit, and the index snaps to the
-   * activity that threshold leaves behind. Nothing else in the body moves it, so it always carries
-   * exactly one of five values, and everything the enzyme does downstream - today that is only the
-   * berberine metabolism - is scaled by how far below [ModelConstants.CYP3A4_NORMAL] it sits.
+   * A curve, not a step. The activity is exactly each calibrated value at the naringin it was
+   * calibrated for and slides from one to the next in between, so one more slice always takes a
+   * little more off the liver instead of everything changing the moment a threshold is crossed.
+   *
+   * The slide is a smoothstep - `3t^2 - 2t^3`, whose value and slope are both 0 at `t = 0` and both
+   * settled at `t = 1` - so each knot is entered and left flat and the curve has no kink where two
+   * segments meet either. Past the last knot it holds, which is what makes eight slices the deepest
+   * the inhibition goes.
+   *
+   * Nothing else in the body moves it, and everything the enzyme does downstream - today that is
+   * only the berberine metabolism - is scaled by how far below [ModelConstants.CYP3A4_NORMAL] it
+   * sits.
    */
-  def cyp3a4For(naringin: Float): Float =
-    if (naringin >= ModelConstants.NARINGIN_CYP_STEP_4) ModelConstants.CYP3A4_AT_STEP_4
-    else if (naringin > ModelConstants.NARINGIN_CYP_STEP_3) ModelConstants.CYP3A4_AT_STEP_3
-    else if (naringin > ModelConstants.NARINGIN_CYP_STEP_2) ModelConstants.CYP3A4_AT_STEP_2
-    else if (naringin > ModelConstants.NARINGIN_CYP_STEP_1) ModelConstants.CYP3A4_AT_STEP_1
-    else ModelConstants.CYP3A4_NORMAL
+  def cyp3a4For(naringin: Float): Float = {
+    val load = Math.max(naringin, 0f)
+    var segment = 0
+    while (segment < CYP3A4_KNOTS.length - 1 && load > CYP3A4_KNOTS(segment + 1)._1) segment += 1
+    if (segment >= CYP3A4_KNOTS.length - 1) {
+      CYP3A4_KNOTS(CYP3A4_KNOTS.length - 1)._2
+    } else {
+      val (fromNaringin, fromActivity) = CYP3A4_KNOTS(segment)
+      val (toNaringin, toActivity) = CYP3A4_KNOTS(segment + 1)
+      val span = toNaringin - fromNaringin
+      val t = if (span > 0f) clamp((load - fromNaringin) / span, 0f, 1f) else 1f
+      fromActivity + (toActivity - fromActivity) * (t * t * (3f - 2f * t))
+    }
+  }
 
   /** Metabolises and decays all pharmacological compounds carried in the body by one tick. */
   def stepDrugs(drugs: ModelDrugs): ModelDrugs = {

@@ -460,38 +460,52 @@ game day (24,000 ticks)**, half the lifetime of glycyrrhizin:
 naringin = Math.max(naringin - 10.0f / 24000f, 0.0f) // -4.167e-4 / tick
 ```
 
-CYP3A4 runs **0.0 ~ 100.0** and sits at **85** in a body that has eaten no grapefruit. It is a **step
-function** of the naringin rather than a curve, so the index only ever holds one of five values, and
-the table is the whole of it:
+CYP3A4 runs **0.0 ~ 100.0** and sits at **85** in a body that has eaten no grapefruit. It is a
+**curve** over the naringin rather than a step, so the index slides from one level to the next instead
+of snapping, and one more slice always takes a little more off the liver. The calibration points are
+the whole of it:
 
 | Naringin | CYP3A4 | Berberine cleared at |
 | --- | --- | --- |
-| ≤ 2 | **85** | 1.00x - the rate the model was written with |
-| > 2 | **60** | 0.71x |
-| > 4 | **45** | 0.53x |
-| > 7 | **25** | 0.29x |
-| ≥ 8.5 | **10** | 0.12x |
+| 0 | **85** | 1.00x - the rate the model was written with |
+| 2 | **60** | 0.71x |
+| 4 | **45** | 0.53x |
+| 7 | **25** | 0.29x |
+| 8.5 or more | **10** | 0.12x |
+
+Between two of those the activity is interpolated with a smoothstep, whose value and slope are both
+zero at each end, so the curve is flat *at* every calibration point and has no kink where two segments
+meet. Past 8.5 it holds at 10, which is what makes eight slices the deepest the inhibition goes:
 
 ```scala
-def cyp3a4For(naringin: Float): Float =
-  if (naringin >= 8.5f) 10f
-  else if (naringin > 7f) 25f
-  else if (naringin > 4f) 45f
-  else if (naringin > 2f) 60f
-  else 85f
+// The knots, in ascending naringin order.
+val knots = Array((0f, 85f), (2f, 60f), (4f, 45f), (7f, 25f), (8.5f, 10f))
+
+def cyp3a4For(naringin: Float): Float = {
+  val load = Math.max(naringin, 0f)
+  var segment = 0
+  while (segment < knots.length - 1 && load > knots(segment + 1)._1) segment += 1
+  if (segment >= knots.length - 1) knots(knots.length - 1)._2
+  else {
+    val (fromNaringin, fromActivity) = knots(segment)
+    val (toNaringin, toActivity) = knots(segment + 1)
+    val t = clamp((load - fromNaringin) / (toNaringin - fromNaringin), 0f, 1f)
+    fromActivity + (toActivity - fromActivity) * (t * t * (3f - 2f * t))
+  }
+}
 ```
 
 The enzyme index is written by the tick, not by eating: a slice moves `naringin` and the next tick
 reads `cyp3a4` off it, so the two can disagree for exactly one tick and never longer. That is also
-what makes the index recover - once the naringin is gone the function returns 85 on its own, with no
+what makes the index recover - once the naringin is gone the curve returns 85 on its own, with no
 separate recovery term to keep in step.
 
 The size of the effect is worth stating plainly, because it is the first interaction in the mod where
 one thing a player eats changes how long another lasts. A single coptis herb (**1.1 berberine**)
 clears in about **9,400 ticks** on its own. Eat nine grapefruit slices first and the same herb takes
-about **17,800** - nearly twice as long, because for the first part of that the liver is running at
-10 to 45 instead of 85. The day-long lifetime of the naringin is what bounds it: a shorter
-naringin would leave the deepest step doing nothing for most of the dose.
+about **20,100** - more than twice as long, because for the first part of that the liver is crawling
+back up from 10 towards 85 rather than running at full rate. The day-long lifetime of the naringin is
+what bounds it: a shorter naringin would leave the deepest knot doing nothing for most of the dose.
 
 ### Hydration and Sweating Model
 

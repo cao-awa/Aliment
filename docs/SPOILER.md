@@ -493,16 +493,19 @@ to vanilla recipes.
 
 ### The enzyme
 
-CYP3A4 sits at **85** in a body that has eaten no grapefruit, and naringin pushes it down in **steps**
-rather than along a curve, so the index only ever holds one of five values:
+CYP3A4 sits at **85** in a body that has eaten no grapefruit, and naringin slides it down **along a
+curve** rather than in steps - so every slice takes a little more off, and the numbers below are the
+points it passes through rather than the only values it can hold:
 
 | Naringin | CYP3A4 | Berberine cleared at | so a dose lasts |
 | --- | --- | --- | --- |
-| ≤ 2 | **85** | 1.00x | 1.0x |
-| > 2 | **60** | 0.71x | 1.4x |
-| > 4 | **45** | 0.53x | 1.9x |
-| > 7 | **25** | 0.29x | 3.4x |
-| ≥ 8.5 | **10** | 0.12x | **8.5x** |
+| nothing | **85** | 1.00x | 1.0x |
+| 2 slices | **60** | 0.71x | 1.4x |
+| 4 slices | **45** | 0.53x | 1.9x |
+| 7 slices | **25** | 0.29x | 3.4x |
+| 8.5 slices | **10** | 0.12x | **8.5x** |
+
+Past eight and a half slices the index stops falling, so that is as deep as the inhibition goes.
 
 Naringin clears linearly over **one game day** from the cap, so the effect goes away on its own - and
 the last column is only reached for part of a dose's life.
@@ -511,7 +514,7 @@ the last column is only reached for part of a dose's life.
 
 Berberine - from coptis and phellodendron - is the mod's antibacterial, and it is cleared by CYP3A4
 and by nothing else. A single coptis herb clears in about **9,400 ticks** on its own; eaten after
-nine slices of grapefruit the same herb takes about **17,800**. That cuts both ways: grapefruit is
+nine slices of grapefruit the same herb takes about **20,100**. That cuts both ways: grapefruit is
 how a player stretches a herb they are short of, and how a player commits to one they only meant to
 take once. No grapefruit, no interaction - a clean body clears berberine at exactly the rate it
 always did.

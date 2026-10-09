@@ -273,9 +273,10 @@ data class AlimentData(
     /**
      * CYP3A4 activity, 0..[CYP3A4_MAX], and [CYP3A4_NORMAL] in a body that has eaten no grapefruit.
      *
-     * The liver enzyme that clears berberine. It is a step function of [naringin] - one of five
-     * values and nothing in between - so it is not a quantity the player can nudge, only one they
-     * can walk down by eating grapefruit and back up by waiting.
+     * The liver enzyme that clears berberine. It is a curve over [naringin] rather than a switch, so
+     * it slides down as the fruit goes in and back up as the naringin clears, and it is not a
+     * quantity the player can nudge directly - only one they can walk down by eating grapefruit and
+     * back up by waiting.
      */
     val cyp3a4: Float = CYP3A4_NORMAL,
 ) {
@@ -701,16 +702,16 @@ data class AlimentData(
         @JvmField val CYP3A4_MIN: Float = AlimentModelBridge.CYP3A4_MIN
         @JvmField val CYP3A4_MAX: Float = AlimentModelBridge.CYP3A4_MAX
 
-        /** The four naringin steps, and the CYP3A4 activity each one leaves behind. */
-        @JvmField val NARINGIN_CYP_STEP_1: Float = AlimentModelBridge.NARINGIN_CYP_STEP_1
-        @JvmField val NARINGIN_CYP_STEP_2: Float = AlimentModelBridge.NARINGIN_CYP_STEP_2
-        @JvmField val NARINGIN_CYP_STEP_3: Float = AlimentModelBridge.NARINGIN_CYP_STEP_3
-        @JvmField val NARINGIN_CYP_STEP_4: Float = AlimentModelBridge.NARINGIN_CYP_STEP_4
+        /** The four naringin knots of the inhibition curve, and the CYP3A4 activity at each. */
+        @JvmField val NARINGIN_CYP_KNOT_1: Float = AlimentModelBridge.NARINGIN_CYP_KNOT_1
+        @JvmField val NARINGIN_CYP_KNOT_2: Float = AlimentModelBridge.NARINGIN_CYP_KNOT_2
+        @JvmField val NARINGIN_CYP_KNOT_3: Float = AlimentModelBridge.NARINGIN_CYP_KNOT_3
+        @JvmField val NARINGIN_CYP_KNOT_4: Float = AlimentModelBridge.NARINGIN_CYP_KNOT_4
 
-        @JvmField val CYP3A4_AT_STEP_1: Float = AlimentModelBridge.CYP3A4_AT_STEP_1
-        @JvmField val CYP3A4_AT_STEP_2: Float = AlimentModelBridge.CYP3A4_AT_STEP_2
-        @JvmField val CYP3A4_AT_STEP_3: Float = AlimentModelBridge.CYP3A4_AT_STEP_3
-        @JvmField val CYP3A4_AT_STEP_4: Float = AlimentModelBridge.CYP3A4_AT_STEP_4
+        @JvmField val CYP3A4_AT_KNOT_1: Float = AlimentModelBridge.CYP3A4_AT_KNOT_1
+        @JvmField val CYP3A4_AT_KNOT_2: Float = AlimentModelBridge.CYP3A4_AT_KNOT_2
+        @JvmField val CYP3A4_AT_KNOT_3: Float = AlimentModelBridge.CYP3A4_AT_KNOT_3
+        @JvmField val CYP3A4_AT_KNOT_4: Float = AlimentModelBridge.CYP3A4_AT_KNOT_4
 
         /** What a healthy player looks like. */
         @JvmField val HEALTHY: AlimentData = AlimentModelBridge.healthy()

@@ -176,12 +176,15 @@ their thresholds, and the diagnostic chain through the real `UseItemCallback` - 
 the fifteen-second bleed, a test strip on that finger becomes a bloodied one, and the meter prints the
 reading.
 
-And it exercises the grapefruit: the five CYP3A4 steps pinned from both sides of all four thresholds
-and swept across the whole naringin range so a sixth value can never appear, naringin filling to its
+And it exercises the grapefruit: the CYP3A4 curve pinned to its six calibration points and swept
+across the whole naringin range in steps of a hundredth of a slice, asserting that no single step
+moves the index more than the steepest segment's own slope allows - which is what separates a curve
+from a staircase, and which the step function this replaced fails by moving 25 points in one step -
+and that the descent never turns back up or leaves the reported range, naringin filling to its
 cap and clearing over exactly one game day, the tick reading the enzyme index off the naringin, and
-berberine proved to fall at the written rate at the 85 baseline and at that step's fraction of it
-below - then the same dose of coptis cleared with and without a body full of grapefruit, which takes
-about 9,400 ticks alone against about 17,800 with the fruit. It eats a slice through the real item
+berberine proved to fall at the written rate at the 85 baseline and at whatever fraction of it the
+index reports below - then the same dose of coptis cleared with and without a body full of grapefruit,
+which takes about 9,400 ticks alone against about 20,100 with the fruit. It eats a slice through the real item
 path to check 2 hunger, 3 saturation, 5 water, 1 naringin, the plant-food glucose, carrot-grade
 vitamin C and that it can be eaten on a full stomach, drinks a bucket of milk to check the standard
 15 water, and eats eleven slices to prove the cap holds.

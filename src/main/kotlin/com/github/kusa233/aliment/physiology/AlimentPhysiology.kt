@@ -123,8 +123,8 @@ object AlimentPhysiology {
     /**
      * Adds naringin from grapefruit, capped at [AlimentData.NARINGIN_CAP].
      *
-     * It moves [AlimentData.cyp3a4] on the next tick rather than here, so the step function that
-     * ties the two together stays in one place.
+     * It moves [AlimentData.cyp3a4] on the next tick rather than here, so the curve that ties the two
+     * together stays in one place.
      */
     fun addNaringin(data: AlimentData, amount: Float): AlimentData =
         AlimentModelBridge.addNaringin(data, amount)
@@ -133,8 +133,8 @@ object AlimentPhysiology {
      * The CYP3A4 activity a given naringin load leaves the liver at, 0..100.
      *
      * The index is normally read off [AlimentData.cyp3a4] after a tick; this is the same question
-     * asked directly, which is what makes the step function testable at its exact boundaries
-     * without a tick's worth of naringin decay moving the answer.
+     * asked directly, which is what makes the curve testable at its exact knots without a tick's
+     * worth of naringin decay moving the answer.
      */
     fun cyp3a4For(naringin: Float): Float = AlimentModelBridge.cyp3a4For(naringin)
 
