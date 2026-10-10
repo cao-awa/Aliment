@@ -128,7 +128,7 @@ object Physiology {
    * eaten is lost.
    *
    * The loss is a plain leak with nothing pulling the other way, sized so that a full store runs
-   * down to the hard floor in [IODINE_DEPLETION_TICKS] - 0.50 umol/L to 0.05 in exactly three
+   * down to the hard floor in [IODINE_DEPLETION_TICKS] - 0.50 umol/L to 0.05 in exactly five
    * in-game days - and then stays there. A proportional controller towards normal is deliberately
    * *not* modelled: it is exactly what would stop the store from ever running out, and iodine is
    * meant to be a dietary need rather than a bonus, so a player who lives on bread ends up severely
@@ -136,11 +136,27 @@ object Physiology {
    *
    * Sweating carries iodine off on top of the leak, which is what pushes an otherwise adequate diet
    * under the reference range during a long fever.
+   *
+   * The leak is flat, so the five days is an exact figure rather than an approach, and a surplus is
+   * cleared by [IODINE_EXCESS_CLEARANCE] on top of it - see there for why only a surplus.
    */
-  private final val IODINE_DEPLETION_TICKS = 3 * 24000
+  private final val IODINE_DEPLETION_TICKS = 5 * 24000
   private final val IODINE_DRAIN_FRACTION =
     (MineralRanges.IODINE.normal - MineralRanges.IODINE.min) /
       IODINE_DEPLETION_TICKS / MineralRanges.IODINE.normal
+
+  /**
+   * How much faster the kidneys clear iodine once there is more of it than the body wants, per tick
+   * and per umol/L of excess.
+   *
+   * The filtered load a kidney handles is the concentration in the blood, so a surplus leaves faster
+   * than a trace does - but only *slightly* faster here, because iodine is not one of the things the
+   * body defends a level of. The term is deliberately written against the excess above normal rather
+   * than against the whole value: a leak that scaled with the value itself would bend the depletion
+   * curve, and "five days from normal to the floor" is a figure the tests and the docs both state.
+   * Read this way, the five days stays exact and a surplus simply clears sooner.
+   */
+  private final val IODINE_EXCESS_CLEARANCE = 0.000002f
 
   // ------------------------------------------------------------------ temperature
 
@@ -251,6 +267,30 @@ object Physiology {
   def isHypothermic(temperature: Float): Boolean = temperature <= ModelConstants.COLD_MILD
 
   def hasThermalStress(temperature: Float): Boolean = thermalTier(temperature) != 0
+
+  /**
+   * How serious a fever is, 0..3, for the indicator the player reads rather than for the symptoms.
+   *
+   * [thermalTier] is the symptom scale and has only two fever steps; this one has three, because it
+   * answers "how bad is this" for the player rather than "what is being done to them", and 39.5 is
+   * worth hearing about even though it makes the weakness no worse than 38.6 does. The thresholds
+   * are the three the model already carries - 38.5 is [ModelConstants.FEVER_MILD], 39.5 is
+   * [ModelConstants.FEVER_NORMAL_IMMUNE_MAX] and 40 is [ModelConstants.FEVER_SEVERE] - so the
+   * indicator and the symptoms can never disagree about where a fever begins or peaks.
+   */
+  def feverGrade(temperature: Float): Int =
+    if (temperature >= ModelConstants.FEVER_SEVERE) 3
+    else if (temperature >= ModelConstants.FEVER_NORMAL_IMMUNE_MAX) 2
+    else if (temperature >= ModelConstants.FEVER_MILD) 1
+    else 0
+
+  /**
+   * Whether the fever is high enough to hurt.
+   *
+   * Separate from [feverGrade] on purpose: pain arrives at the second grade and stays there, so the
+   * two are not the same ladder and a player at 40.5 is not told they are in three times the pain.
+   */
+  def hasPain(temperature: Float): Boolean = temperature >= ModelConstants.PAIN_THRESHOLD
 
   // ------------------------------------------------------------------ anticholinergics
 
@@ -656,10 +696,27 @@ object Physiology {
    * `ambient` is the temperature the environment is trying to drag the body towards, on the same
    * Celsius scale as the body itself; the normal temperature means "indoors, no wind, nothing to
    * fight". It defaults to neutral so the model can be driven from a test without a world.
+   *
+   * `glucoseHeld` is the whole of the sugar curve's off switch. While it is set the blood glucose is
+   * carried over exactly as it came in, so all three of the terms that move it - the fasting drain,
+   * the body's own insulin and any injected aspart - stop moving it at once. Only glucose is held:
+   * the insulin index below still follows it, because insulin is a *response* to the glucose and not
+   * a thing that moves it, and holding that too would only make the readout stop agreeing with
+   * itself.
+   *
+   * This is not the same as not ticking. Nothing else in the model is affected, and the level is not
+   * reset either - a body held at 3.0 is still at 3.0 when the hold is lifted, the same way going
+   * creative does not cure an infection. The only other way into a body's glucose is [addGlucose],
+   * which takes the same switch, because a meal is the one *rise* in the system and freezing the tick
+   * alone would leave eating as the last thing that could still move a held sugar.
    */
-  def tick(state: ModelState): ModelState = tick(state, ModelConstants.TEMPERATURE_NORMAL)
+  def tick(state: ModelState): ModelState =
+    tick(state, ModelConstants.TEMPERATURE_NORMAL, glucoseHeld = false)
 
-  def tick(state: ModelState, ambient: Float): ModelState = {
+  def tick(state: ModelState, ambient: Float): ModelState =
+    tick(state, ambient, glucoseHeld = false)
+
+  def tick(state: ModelState, ambient: Float, glucoseHeld: Boolean): ModelState = {
     // 1. Drugs and injected pyrogen are metabolised first so the rest of the tick sees the current
     //    concentrations. A negative pyrogen is an antipyretic offset and clears the same way.
     val drugs = stepDrugs(state.drugs)
@@ -670,9 +727,12 @@ object Physiology {
     val pyrogen = stepPyrogen(state, ambient)
 
     // 1b. Glucose and insulin, which the drugs above feed into: injected insulin aspart is what
-    //     makes the injected term of the uptake possible.
+    //     makes the injected term of the uptake possible. A held glucose is carried straight across
+    //     rather than having the step undone afterwards, so there is one place that decides whether
+    //     the sugar moves and no arithmetic that quietly runs anyway.
     val insulin = stepInsulin(state)
-    val glucose = stepGlucose(state, insulin, drugs.insulinAspart)
+    val glucose =
+      if (glucoseHeld) state.glucose else stepGlucose(state, insulin, drugs.insulinAspart)
 
     // 2. Pathogens grow logistically and are cleared in proportion to immune competence and targeted drugs.
     val competence = immuneCompetence(state.mediators.getInflammation)
@@ -958,9 +1018,20 @@ object Physiology {
     if (deltaT > 1.25f) deltaT * SWEAT_MINERAL_FRACTION_PER_DEGREE else 0f
   }
 
+  /**
+   * One tick of a serum electrolyte.
+   *
+   * Two forces act on it: the body pulls the value back towards normal, and the kidneys take away
+   * what is there. The second is proportional to the concentration itself - the filtered load a
+   * kidney handles is what is in the blood multiplied by the volume it clears - so a high
+   * electrolyte is dumped faster than a low one, and the same `loss` empties a full store quicker
+   * than a nearly empty one. At normal the factor is exactly 1, so the leak between two healthy
+   * values is the one it always was.
+   */
   private def stepMineral(value: Float, mineral: ModelMineral, loss: Float, excretion: Float): Float = {
     val homeostasis = (mineral.normal - value) * ELECTROLYTE_HOMEOSTASIS
-    mineral.clamp(value + homeostasis - loss * excretion * mineral.normal)
+    val concentration = value / mineral.normal
+    mineral.clamp(value + homeostasis - loss * excretion * concentration * mineral.normal)
   }
 
   private def stepElectrolytes(state: ModelState): ModelElectrolytes = {
@@ -977,14 +1048,17 @@ object Physiology {
 
   /**
    * The store drains at a fixed rate with nothing adding to it, so a player who never eats kelp runs
-   * it down in three in-game days and then sits at the floor. A fever, or a drinking binge, takes it
-   * away faster.
+   * it down in five in-game days and then sits at the floor. A fever, or a drinking binge, takes it
+   * away faster, and so does a surplus of the iodine itself.
    */
   private def stepTraceElements(state: ModelState): ModelTraceElements = {
     val iodineMineral = MineralRanges.IODINE
     val flush = mineralFlush(state) + mineralSweat(state)
 
-    val iodineLoss = (IODINE_DRAIN_FRACTION + flush * EXCRETION_IODINE) * iodineMineral.normal
+    val excess = Math.max(state.traceElements.iodine - iodineMineral.normal, 0f)
+    val iodineLoss =
+      (IODINE_DRAIN_FRACTION + flush * EXCRETION_IODINE) * iodineMineral.normal +
+        excess * IODINE_EXCESS_CLEARANCE
     val newIodine = iodineMineral.clamp(state.traceElements.iodine - iodineLoss)
 
     // Vitamin C excretion: first-order elimination (rate proportional to concentration).
@@ -1109,11 +1183,19 @@ object Physiology {
    *
    * The body cannot store a surplus, so this is the only thing that ever puts glucose back - which
    * makes eating a glucose *dose* the player has to think about, not just a hunger bar.
+   *
+   * `glucoseHeld` is the switch [tick] takes, and it has to be here as well: the tick only ever
+   * takes glucose away, so a hold that stopped there would still let a meal raise it.
    */
   def addGlucose(state: ModelState, amount: Float): ModelState =
-    state.withGlucose(
-      clamp(state.glucose + amount, ModelConstants.GLUCOSE_MIN, ModelConstants.GLUCOSE_MAX),
-    )
+    addGlucose(state, amount, glucoseHeld = false)
+
+  def addGlucose(state: ModelState, amount: Float, glucoseHeld: Boolean): ModelState =
+    if (glucoseHeld) state
+    else
+      state.withGlucose(
+        clamp(state.glucose + amount, ModelConstants.GLUCOSE_MIN, ModelConstants.GLUCOSE_MAX),
+      )
 
   /**
    * Adds insulin aspart, the injected fast-acting analogue, capped.

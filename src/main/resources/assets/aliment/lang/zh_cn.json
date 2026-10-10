@@ -64,6 +64,8 @@
     "message.aliment.glucose.reading":  "当前血糖：%s mmol/L",
     "message.aliment.glucose.no_strip":  "另一只手需要持有带血的血糖试卡",
     "message.aliment.glucose.no_blood":  "手指没有出血：请先使用微针",
+    "effect.aliment.fever":  "发热",
+    "effect.aliment.pain":  "疼痛",
     "item.aliment.willow_bark":  "柳树树皮",
     "item.aliment.willow_bark_pieces":  "柳树皮碎片",
     "item.aliment.raw_willow_bark_soup_bottle":  "生柳树皮汤",

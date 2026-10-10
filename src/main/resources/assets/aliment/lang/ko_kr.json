@@ -64,6 +64,8 @@
     "message.aliment.glucose.reading":  "현재 혈당: %s mmol/L",
     "message.aliment.glucose.no_strip":  "다른 손에 피 묻은 시험지가 필요합니다",
     "message.aliment.glucose.no_blood":  "손가락에서 피가 나지 않습니다: 먼저 미세 바늘을 사용하세요",
+    "effect.aliment.fever":  "발열",
+    "effect.aliment.pain":  "통증",
     "item.aliment.willow_bark":  "버드나무 껍질",
     "item.aliment.willow_bark_pieces":  "버드나무 껍질 조각",
     "item.aliment.raw_willow_bark_soup_bottle":  "설익은 버드나무 껍질 수프",

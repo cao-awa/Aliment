@@ -358,6 +358,26 @@ data class AlimentData(
     val thermalTier: Int
         get() = AlimentModelBridge.thermalTier(this.temperature)
 
+    /**
+     * How serious the fever is, 0..3, as the indicator the player is shown rather than as a symptom:
+     *
+     * | grade | range | effect |
+     * | --- | --- | --- |
+     * | 3 | ≥ 40.0 | `aliment:fever` III |
+     * | 2 | 39.5 – 40.0 | `aliment:fever` II, and `aliment:pain` |
+     * | 1 | 38.5 – 39.5 | `aliment:fever` I |
+     * | 0 | below 38.5 | - |
+     *
+     * This is deliberately three steps where [thermalTier] is two: nothing is done to the player at
+     * 39.5 that is not already done at 38.6, but it is worth telling them about anyway.
+     */
+    val feverGrade: Int
+        get() = AlimentModelBridge.feverGrade(this.temperature)
+
+    /** True at or above [PAIN_THRESHOLD]; a fever this high hurts, and the indicator says so. */
+    val hasPain: Boolean
+        get() = AlimentModelBridge.hasPain(this.temperature)
+
     // ------------------------------------------------------------------ mandrake alkaloids
 
     /** Scopolamine plus atropine, which is what the fever and the blur are both judged on. */
@@ -571,6 +591,13 @@ data class AlimentData(
         /** Past these the thermal symptoms get worse; 40 is where a fever turns dangerous. */
         @JvmField val COLD_SEVERE: Float = AlimentModelBridge.COLD_SEVERE
         @JvmField val FEVER_SEVERE: Float = AlimentModelBridge.FEVER_SEVERE
+
+        /**
+         * The temperature the pain indicator appears at. Equal to
+         * [AlimentModelBridge.FEVER_NORMAL_IMMUNE_MAX] by design rather than by reference, so the
+         * two can be tuned apart; today they are both 39.5.
+         */
+        @JvmField val PAIN_THRESHOLD: Float = AlimentModelBridge.PAIN_THRESHOLD
 
         /** Hard clamp for the model; 42 is where proteins start to denature. */
         @JvmField val TEMPERATURE_MIN: Float = AlimentModelBridge.TEMPERATURE_MIN

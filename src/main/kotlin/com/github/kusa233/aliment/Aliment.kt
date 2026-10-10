@@ -7,6 +7,7 @@ import com.github.kusa233.aliment.physiology.AlimentSymptoms
 import com.github.kusa233.aliment.registry.AlimentBlockEntities
 import com.github.kusa233.aliment.registry.AlimentBlocks
 import com.github.kusa233.aliment.registry.AlimentCreativeTabs
+import com.github.kusa233.aliment.registry.AlimentEffects
 import com.github.kusa233.aliment.registry.AlimentEntities
 import com.github.kusa233.aliment.registry.AlimentItems
 import com.github.kusa233.aliment.registry.AlimentRecipes
@@ -34,6 +35,10 @@ class Aliment : ModInitializer {
         AlimentTrunkPlacers.initialize()
         AlimentBlocks.initialize()
         AlimentEntities.initialize()
+        // The fever and pain indicators. They are content like the items below and depend on
+        // nothing themselves; the only ordering that matters is that they exist by the time
+        // `AlimentSymptoms` starts handing them out, near the bottom of this method.
+        AlimentEffects.initialize()
         AlimentItems.initialize()
         AlimentRecipes.initialize()
         AlimentBlockEntities.initialize()

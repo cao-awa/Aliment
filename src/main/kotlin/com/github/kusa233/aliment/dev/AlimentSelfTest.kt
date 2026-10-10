@@ -1104,7 +1104,7 @@ class AlimentSelfTest : ModInitializer {
         // item is actually eaten, through the same `finishUsingItem` path the mixin hooks, and the
         // body is read afterwards.
         val deficient = AlimentData.HEALTHY.copy(
-            traceElements = TraceElements.HEALTHY.withIodine(0.30f).withVitaminC(30.0f),
+            traceElements = TraceElements.HEALTHY.withIodine(0.15f).withVitaminC(30.0f),
         )
 
         // Vitamin C: a tomato is worth a carrot, which the suite already pins at +10.
@@ -1120,7 +1120,7 @@ class AlimentSelfTest : ModInitializer {
         val afterRoll = player.getAttachedOrCreate(AlimentAttachments.DATA)
         check(
             "eating a kelp roll adds its iodine",
-            abs(afterRoll.traceElements.iodine - 0.60f) < 0.001f,
+            abs(afterRoll.traceElements.iodine - 0.30f) < 0.001f,
         )
         check(
             "and charges it as a mixed dish",

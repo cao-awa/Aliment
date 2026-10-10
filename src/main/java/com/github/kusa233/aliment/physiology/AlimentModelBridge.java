@@ -157,6 +157,12 @@ public final class AlimentModelBridge {
     public static final float COLD_SEVERE = ModelConstants.COLD_SEVERE();
     public static final float FEVER_SEVERE = ModelConstants.FEVER_SEVERE();
 
+    /**
+     * Where a fever starts to hurt, which is what the pain indicator marks. Equal to
+     * {@link #FEVER_NORMAL_IMMUNE_MAX} by design rather than by reference; see the model.
+     */
+    public static final float PAIN_THRESHOLD = ModelConstants.PAIN_THRESHOLD();
+
     /** Hard clamp for the model; 42 is where proteins start to denature. */
     public static final float TEMPERATURE_MIN = ModelConstants.TEMPERATURE_MIN();
     public static final float TEMPERATURE_MAX = ModelConstants.TEMPERATURE_MAX();
@@ -542,6 +548,19 @@ public final class AlimentModelBridge {
         return Physiology.thermalTier(temperature);
     }
 
+    /**
+     * The fever grade the player is shown, 0..3. Deliberately not the same as {@link #thermalTier}:
+     * that one is the symptom scale and has two fever steps, this one is the indicator and has three.
+     */
+    public static int feverGrade(float temperature) {
+        return Physiology.feverGrade(temperature);
+    }
+
+    /** Whether the fever is high enough to hurt, i.e. whether the pain indicator is shown. */
+    public static boolean hasPain(float temperature) {
+        return Physiology.hasPain(temperature);
+    }
+
     /** The two mandrake alkaloids, as one number. */
     public static float anticholinergicLoad(AlimentData data) {
         return Physiology.anticholinergicLoad(toModel(data));
@@ -615,6 +634,14 @@ public final class AlimentModelBridge {
     /** Advances a player's physiology by a single tick, towards {@code ambient} degrees. */
     public static AlimentData tick(AlimentData data, float ambient) {
         return fromModel(Physiology.tick(toModel(data), ambient));
+    }
+
+    /**
+     * Advances a player's physiology by a single tick, towards {@code ambient} degrees, with the
+     * blood glucose carried over unchanged when {@code glucoseHeld}.
+     */
+    public static AlimentData tick(AlimentData data, float ambient, boolean glucoseHeld) {
+        return fromModel(Physiology.tick(toModel(data), ambient, glucoseHeld));
     }
 
     /** How well an inflammation level fights pathogens, in 0..1. */
@@ -734,6 +761,11 @@ public final class AlimentModelBridge {
     /** Adds what one serving of food does to blood glucose, in mmol/L, capped. */
     public static AlimentData addGlucose(AlimentData data, float amount) {
         return fromModel(Physiology.addGlucose(toModel(data), amount));
+    }
+
+    /** Adds what one serving of food does to blood glucose, or nothing when {@code glucoseHeld}. */
+    public static AlimentData addGlucose(AlimentData data, float amount, boolean glucoseHeld) {
+        return fromModel(Physiology.addGlucose(toModel(data), amount, glucoseHeld));
     }
 
     /** Adds insulin aspart, the injected fast-acting analogue, capped. */

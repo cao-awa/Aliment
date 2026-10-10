@@ -16,6 +16,7 @@ of the built mod — they only regenerate files under `src/main/resources`.
 | `gen_grapefruit_wood_textures.ps1` | The sixteen **wood** textures, made by mapping the willow's palette onto the grapefruit's pixel for pixel rather than redrawing them, so the door panels, trapdoor slats and sign frames stay identical in form. It does not own the tree's bark (`gen_grapefruit_textures.ps1` does), the leaves or the sapling. |
 | `gen_grape_textures.ps1` | The nine textures of the grape: the four vine stages, the grape and seed items, the grape-wine bottle, and the two tank liquids. Pure `System.Drawing`, writes only those nine files. Every sprite is stored as **ASCII art** at the top of the script and validated on the way in - `Add-GvArt` throws on a wrong row count, a wrong row length, or a legend character that is not in the map - so the shapes are editable as text and a typo is a startup error rather than a silently mangled sprite. The vine's last two stages read as **bunches**: stage 3 is a canopy with a ripe cluster hanging in it, and the item is the same tapering lattice, 6-6-4-4-2-2 berries wide, under a bare twig. The wine bottle follows `gen_grapefruit_textures.ps1`'s vanilla-potion approach - vanilla's `potion.png` bottle pixel for pixel with the greyscale overlay tinted deep red - and the tank liquids reuse the `channel = base + ((11x + 7y) mod 25)` weave every other `tank_liquid_*` sprite already uses, so the new liquids cannot be told apart from the old ones. |
 | `verify-datapack/` | A dev-only data pack that proves the willow world generation actually runs. See below. |
+| `gen_effect_textures.ps1` | The two **status effect** icons, `fever.png` and `pain.png`, at `assets/aliment/textures/mob_effect/`. Pure `System.Drawing`, 18x18 - which is not a style choice but the box `Hud` blits an effect sprite into - and both are stored as **ASCII art** at the top of the script, so the shapes are reviewable in a diff rather than having to be rendered. It uses a case-*sensitive* dictionary for the palette, because PowerShell's own `@{}` ignores case and the thermometer needs `R` and `r` to be mercury and its shadow; it throws on a row of the wrong length or a character that is not in the palette.
 
 > **`gen_data.ps1` is stale - do not run it wholesale.** It predates the grapefruit tree, the glucose
 > chain and the fermentation set, so a full run **deletes work that is not in its tables**:
@@ -49,8 +50,8 @@ Both generators are idempotent: running them twice produces byte-identical outpu
 >
 > `gen_textures.ps1` still carries a hard-coded `$root` for the checkout it was written in; check that
 > before running it. `gen_glucose_textures.ps1`, `gen_glass_textures.ps1`,
-> `gen_grapefruit_textures.ps1`, `gen_grapefruit_wood.ps1`, `gen_grapefruit_wood_textures.ps1`
-> and `gen_grape_textures.ps1` derive their paths from `$PSScriptRoot`.
+> `gen_grapefruit_textures.ps1`, `gen_grapefruit_wood.ps1`, `gen_grapefruit_wood_textures.ps1`,
+> `gen_grape_textures.ps1` and `gen_effect_textures.ps1` derive their paths from `$PSScriptRoot`.
 
 ## Requirements
 
@@ -71,6 +72,7 @@ pwsh -ExecutionPolicy Bypass -File tools\gen_grapefruit_textures.ps1
 pwsh -ExecutionPolicy Bypass -File tools\gen_grapefruit_wood_textures.ps1
 pwsh -ExecutionPolicy Bypass -File tools\gen_grapefruit_wood.ps1
 pwsh -ExecutionPolicy Bypass -File tools\gen_grape_textures.ps1
+pwsh -ExecutionPolicy Bypass -File tools\gen_effect_textures.ps1
 ```
 
 Both `.ps1` files are pure ASCII, so they also run fine when invoked directly:
@@ -138,8 +140,9 @@ rather than by scanning a world, which is what the patches are actually decided 
 Runs the whole model headlessly in a few milliseconds: homeostasis, infection clearance,
 untreated immune storm, salicin and dexamethasone control, overdose, drug metabolism, the immune
 competence curve, the mediator weights, thirst over a game day, over-hydration, electrolyte
-dilution from heavy drinking, the iodine store draining to its floor in exactly three game days and
-what a day's kelp does about it, blood glucose and the insulin index, the two mandrake alkaloids
+dilution from heavy drinking, that each electrolyte's own leak grows with its own concentration, the iodine store draining to its floor in exactly five game days and
+what a day's kelp does about it, and that a surplus of iodine - unlike a deficit - leaves faster than
+that flat leak, blood glucose and the insulin index, the two mandrake alkaloids
 (the three fever steps, the blur
 thresholds, the cap and the metabolism, and that the drug fever stacks on an infection's), the two
 gymnopilus compounds (that psilocybin is inert and converts one for one over half a day, that
@@ -176,6 +179,18 @@ their thresholds, and the diagnostic chain through the real `UseItemCallback` - 
 the fifteen-second bleed, a test strip on that finger becomes a bloodied one, and the meter prints the
 reading.
 
+It also exercises the two mechanisms that make a surplus leave faster than a deficit. Each
+electrolyte's leak is scaled by its own concentration, and the check for that cannot simply compare
+how much a loaded body lost against a healthy one - under any model the loaded body loses more,
+because homeostasis is pulling it down either way. So the leak is isolated by differencing: the same
+body is ticked once with a full bladder and once with a normal one, and the gap is the leak with the
+homeostatic pull cancelled, which is then measured at two sodium levels and required to sit at the
+concentration ratio (180/140). Restoring the flat leak drops that ratio to exactly 1.0 and fails
+exactly those two checks. Iodine is the same idea on its own term: a surplus above normal is cleared
+faster than the flat five-day leak, while a normal store is still required to lose exactly the flat
+figure - the two claims pull against each other on one line of the model, so both are pinned. Zeroing
+the surplus term fails the surplus half and leaves the depletion half green.
+
 And it exercises the grapefruit: the CYP3A4 curve pinned to its six calibration points and swept
 across the whole naringin range in steps of a hundredth of a slice, asserting that no single step
 moves the index more than the steepest segment's own slope allows - which is what separates a curve
@@ -194,7 +209,7 @@ because tag membership is what a wood set actually is: each of the four log-shap
 to be in `aliment:grapefruit_logs`, in `minecraft:logs` and axe-mineable; each shaped block in the one
 vanilla tag that makes it craftable and mineable; a willow log is asserted *not* to be in the
 grapefruit tag; and both boats are checked to be `BoatItem`s whose entity types are registered and
-distinct from the willow's. 699 checks, all passing.
+distinct from the willow's. 832 checks, all passing.
 
 ### Running either one
 

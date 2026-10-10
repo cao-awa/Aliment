@@ -250,14 +250,14 @@ internal object FarmersDelightItems {
     /**
      * What each kelp roll carries in iodine, in umol/L.
      *
-     * A roll is three dried kelp, and dried kelp is worth 0.20 each - but a roll is also a bowl of
+     * A roll is three dried kelp, and dried kelp is worth 0.10 each - but a roll is also a bowl of
      * rice, and the rice is most of it. So a roll is charged as a serving of food that contains
-     * kelp, not as three dried kelp: 0.30, between one kelp and two. A slice is a third of a roll,
+     * kelp, not as three dried kelp: 0.15, between one kelp and two. A slice is a third of a roll,
      * exactly as the cutting board divides it.
      */
     val IODINE: Map<Item, Float> = mapOf(
-        ModItems.KELP_ROLL.get() to 0.30f,
-        ModItems.KELP_ROLL_SLICE.get() to 0.10f,
+        ModItems.KELP_ROLL.get() to 0.15f,
+        ModItems.KELP_ROLL_SLICE.get() to 0.05f,
     )
 
     /**

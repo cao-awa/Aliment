@@ -30,6 +30,17 @@ object AlimentPhysiology {
      */
     fun tick(data: AlimentData, ambient: Float): AlimentData = AlimentModelBridge.tick(data, ambient)
 
+    /**
+     * Advances a player's physiology by a single tick, with the blood glucose held where it is when
+     * [glucoseHeld].
+     *
+     * Holding rather than resetting is what makes the switch safe to flip: the level the player had
+     * is the level they find again when it comes off. See [AlimentSymptoms.isGlucoseHeld] for the
+     * condition that sets it.
+     */
+    fun tick(data: AlimentData, ambient: Float, glucoseHeld: Boolean): AlimentData =
+        AlimentModelBridge.tick(data, ambient, glucoseHeld)
+
     /** How well an inflammation level fights pathogens, in `0..1`. */
     fun immuneCompetence(inflammation: Float): Float = AlimentModelBridge.immuneCompetence(inflammation)
 
@@ -153,6 +164,13 @@ object AlimentPhysiology {
      */
     fun addGlucose(data: AlimentData, amount: Float): AlimentData =
         AlimentModelBridge.addGlucose(data, amount)
+
+    /**
+     * Adds what one serving of food does to blood glucose, or nothing at all when [glucoseHeld], so
+     * that a meal cannot be the one thing still moving a held sugar.
+     */
+    fun addGlucose(data: AlimentData, amount: Float, glucoseHeld: Boolean): AlimentData =
+        AlimentModelBridge.addGlucose(data, amount, glucoseHeld)
 
     /**
      * Adds insulin aspart, the injected fast-acting analogue, capped at

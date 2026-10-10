@@ -64,6 +64,8 @@
     "message.aliment.glucose.reading":  "Blood glucose: %s mmol/L",
     "message.aliment.glucose.no_strip":  "The meter needs a bloodied test strip in the other hand",
     "message.aliment.glucose.no_blood":  "The finger is not bleeding: use a microneedle first",
+    "effect.aliment.fever":  "Fever",
+    "effect.aliment.pain":  "Pain",
     "item.aliment.willow_bark":  "Willow Bark",
     "item.aliment.willow_bark_pieces":  "Willow Bark Pieces",
     "item.aliment.raw_willow_bark_soup_bottle":  "Raw Willow Bark Soup",

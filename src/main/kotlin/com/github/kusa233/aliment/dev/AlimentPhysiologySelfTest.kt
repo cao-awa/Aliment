@@ -1,6 +1,7 @@
 package com.github.kusa233.aliment.dev
 
 import com.github.kusa233.aliment.Aliment
+import com.github.kusa233.aliment.command.AlimentCommand
 import com.github.kusa233.aliment.event.AlimentInteractions
 import com.github.kusa233.aliment.physiology.Electrolytes
 import com.github.kusa233.aliment.physiology.Mediators
@@ -15,6 +16,7 @@ import com.github.kusa233.aliment.physiology.AlimentRuntime
 import com.github.kusa233.aliment.physiology.AlimentSymptoms
 import com.github.kusa233.aliment.physiology.TraceElements
 import com.github.kusa233.aliment.registry.AlimentBlocks
+import com.github.kusa233.aliment.registry.AlimentEffects
 import com.github.kusa233.aliment.registry.AlimentEntities
 import com.github.kusa233.aliment.registry.AlimentItems
 import com.github.kusa233.aliment.registry.Registration
@@ -24,6 +26,7 @@ import com.github.kusa233.aliment.world.item.BloodiedTestStripItem
 import com.github.kusa233.aliment.world.item.WineItem
 import com.google.gson.JsonParser
 import com.mojang.datafixers.util.Either
+import java.lang.reflect.Modifier
 import net.fabricmc.api.ModInitializer
 import net.minecraft.world.attribute.BedRule
 import net.fabricmc.fabric.api.entity.FakePlayer
@@ -40,9 +43,11 @@ import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.tags.BlockTags
 import net.minecraft.tags.TagKey
+import net.minecraft.world.Difficulty
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.InteractionResult
 import net.minecraft.world.effect.MobEffect
+import net.minecraft.world.effect.MobEffectCategory
 import net.minecraft.world.effect.MobEffects
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.EntitySpawnReason
@@ -101,6 +106,7 @@ class AlimentPhysiologySelfTest : ModInitializer {
                 grinding(server.overworld())
                 chestLoot(server.overworld())
                 creativeIsFrozen(server.overworld())
+                peacefulHoldsGlucose(server.overworld())
                 sleepRestriction(server.overworld())
                 // Last, because it makes the server hand out a second player object.
                 deathResetsTheBody(server.overworld())
@@ -128,6 +134,7 @@ class AlimentPhysiologySelfTest : ModInitializer {
         thirstDepletionRates()
         overhydration()
         drinkingDilutesElectrolytes()
+        electrolyteLossScalesWithConcentration()
         dehydrationStopsWhenDrinking()
         iodineDepletion()
         vitaminCDepletion()
@@ -144,7 +151,9 @@ class AlimentPhysiologySelfTest : ModInitializer {
         insulinInjection()
         foodGlucoseAmounts()
         hypoglycemiaSymptoms()
+        glucoseHeldInPeaceful()
         naringinAndCyp3a4()
+        statusReadout()
     }
 
     /**
@@ -351,7 +360,7 @@ class AlimentPhysiologySelfTest : ModInitializer {
             // The one thing a player has to keep doing: iodine has no homeostat, so a day's worth of
             // kelp goes in every day. Everything else in this test is "do nothing at all".
             if (tick % 24_000 == 0) {
-                data = AlimentPhysiology.iodine(data, 0.15f)
+                data = AlimentPhysiology.iodine(data, 0.10f)
             }
             min = minOf(min, data.inflammation)
             max = maxOf(max, data.inflammation)
@@ -368,6 +377,14 @@ class AlimentPhysiologySelfTest : ModInitializer {
         )
         check("homeostasis keeps the core temperature at 37", abs(data.temperature - AlimentData.TEMPERATURE_NORMAL) < 0.01f)
         check("and the thyroid is happy", data.traceElements.iodine in Mineral.IODINE.safeLow..Mineral.IODINE.safeHigh)
+
+        // The band itself, in numbers. Every symptom check below is written *relative* to safeLow, so
+        // all of them would go on passing if the band were moved back to 0.40 - they assert the rule
+        // ("below the floor is a symptom"), not the value. The one thing they cannot notice is the
+        // band moving, which is exactly what a retune does, so the two figures a player actually feels
+        // are pinned here by hand: nothing at all until 0.25, and a normal store at 0.50.
+        check("iodine is normal at 0.50", abs(Mineral.IODINE.normal - 0.50f) < 1e-6f)
+        check("and its reference floor is the deliberately late 0.25", abs(Mineral.IODINE.safeLow - 0.25f) < 1e-6f)
     }
 
     private fun mildInfectionResolves() {
@@ -599,6 +616,54 @@ class AlimentPhysiologySelfTest : ModInitializer {
         )
     }
 
+    /**
+     * The leak grows with the value itself, so one flush takes more sodium out of a loaded body than
+     * out of a healthy one - in proportion to the sodium it is carrying.
+     *
+     * The naive version of this check is worthless: a body carrying too much sodium loses more of it
+     * in absolute terms whatever the loss does, because homeostasis is pulling it down either way. So
+     * the loss is isolated by **differencing**: the same body is ticked once with a full bladder and
+     * once with a normal one, and the gap between the two is the leak alone, with the homeostatic pull
+     * cancelled out because it is identical in both. Doing that at two different sodium levels gives
+     * two leaks, and their *ratio* is the thing that changed - it should match the ratio of the
+     * concentrations, where the old flat model would have made the two leaks equal.
+     *
+     * A single tick is used deliberately. Homeostasis is nonlinear, so a longer run would let the two
+     * bodies' trajectories drift apart and the subtraction would stop being a clean isolation.
+     */
+    private fun electrolyteLossScalesWithConcentration() {
+        val sodium = Mineral.SODIUM
+        val loaded = sodium.normal + 40f
+
+        // change = homeostasis - loss, so the gap between a flushed body and a dry one is -loss.
+        fun oneTick(at: Float, water: Float): Float {
+            val before = AlimentData.HEALTHY
+                .withWater(water)
+                .withElectrolytes(AlimentData.HEALTHY.electrolytes.withSodium(at))
+            val after = AlimentPhysiology.tick(before)
+            return after.electrolytes.sodium - before.electrolytes.sodium
+        }
+
+        val dryHealthy = oneTick(sodium.normal, AlimentData.WATER_NORMAL)
+        val flushedHealthy = oneTick(sodium.normal, 200f)
+        val dryLoaded = oneTick(loaded, AlimentData.WATER_NORMAL)
+        val flushedLoaded = oneTick(loaded, 200f)
+
+        val leakHealthy = dryHealthy - flushedHealthy
+        val leakLoaded = dryLoaded - flushedLoaded
+        val ratio = leakLoaded / leakHealthy
+
+        logger.info(
+            "PHYS sodium leak per flushed tick: at {} = {} at {} = {} ratio {} (concentration ratio {})",
+            sodium.normal, leakHealthy, loaded, leakLoaded, ratio, loaded / sodium.normal,
+        )
+        check("a full bladder takes sodium out of a healthy body", leakHealthy > 0f)
+        // 1.2857 is the exact concentration ratio; the old flat model would sit at 1.0, so anything
+        // clearly above 1 is the concentration term and not a rounding artefact.
+        check("a loaded body leaks sodium faster than a healthy one", ratio > 1.2f)
+        check("and it is the concentration ratio, not some other multiple", abs(ratio - loaded / sodium.normal) < 0.02f)
+    }
+
     private fun dehydrationStopsWhenDrinking() {
         var data = AlimentData.HEALTHY.copy(water = 20f)
         check("low water is flagged as dehydration", data.isDehydrated)
@@ -608,8 +673,12 @@ class AlimentPhysiologySelfTest : ModInitializer {
 
     /**
      * Iodine is the one mineral the body cannot make and does not conserve: what is not eaten is
-     * lost. A full store - normal 0.50 down to the hard floor 0.05 - is drained in exactly three
+     * lost. A full store - normal 0.50 down to the hard floor 0.05 - is drained in exactly five
      * in-game days, and then it stays on the floor until kelp puts something back.
+     *
+     * The leak is flat while the value is at or below normal, so the five days and the halfway point
+     * are both exact figures rather than approaches; the one term that is not flat is the surplus
+     * clearance, which only ever makes an excess leave sooner.
      */
     private fun iodineDepletion() {
         val iodine = Mineral.IODINE
@@ -617,42 +686,45 @@ class AlimentPhysiologySelfTest : ModInitializer {
         val halfway = (iodine.normal + floor) / 2f
 
         var data = AlimentData.HEALTHY
-        repeat(36_000) { data = AlimentPhysiology.tick(data) }
-        logger.info("PHYS iodine after a day and a half with no kelp: {}", data.traceElements.iodine)
-        check("half the store is gone after half of the three days", abs(data.traceElements.iodine - halfway) < 0.01f)
+        repeat(60_000) { data = AlimentPhysiology.tick(data) }
+        logger.info("PHYS iodine after two and a half days with no kelp: {}", data.traceElements.iodine)
+        check("half the store is gone after half of the five days", abs(data.traceElements.iodine - halfway) < 0.01f)
 
-        repeat(36_000) { data = AlimentPhysiology.tick(data) }
-        logger.info("PHYS iodine after three days with no kelp: {} (floor {})", data.traceElements.iodine, floor)
-        check("three game days empty the store", abs(data.traceElements.iodine - floor) < 0.001f)
+        repeat(60_000) { data = AlimentPhysiology.tick(data) }
+        logger.info("PHYS iodine after five days with no kelp: {} (floor {})", data.traceElements.iodine, floor)
+        check("five game days empty the store", abs(data.traceElements.iodine - floor) < 0.001f)
         check("an empty store is severe iodine deficiency", data.traceElements.iodine < iodine.severeLow)
         check("and it is reported as an imbalance", data.hasTraceElementImbalance)
         check("the thyroid follows it down", AlimentPhysiology.targetTemperature(data) < 36.5f)
 
         repeat(24_000) { data = AlimentPhysiology.tick(data) }
-        check("a fourth day does not drain it any further", abs(data.traceElements.iodine - floor) < 0.001f)
+        check("a sixth day does not drain it any further", abs(data.traceElements.iodine - floor) < 0.001f)
         check("the five electrolytes are unaffected", !data.hasElectrolyteImbalance)
         check("iodine is not part of the electrolyte set", Electrolytes.MINERALS.none { it == Mineral.IODINE })
 
-        // Kelp is the only way back. The leak costs 0.15 umol/L a day, so a wet kelp (0.10) is not a
-        // day's worth and two of them are.
-        val oneKelp = AlimentPhysiology.iodine(data, 0.10f)
+        // Kelp is the only way back. The leak costs 0.09 umol/L a day, so a wet kelp (0.05) is not a
+        // day's worth and two of them just about are.
+        val oneKelp = AlimentPhysiology.iodine(data, 0.05f)
         logger.info("PHYS iodine after one kelp from an empty store: {}", oneKelp.traceElements.iodine)
-        check("one kelp lifts an empty store off the floor", oneKelp.traceElements.iodine > floor + 0.05f)
-        check("but one kelp is less than a day's loss", oneKelp.traceElements.iodine < floor + 0.15f)
+        check("one kelp lifts an empty store off the floor", oneKelp.traceElements.iodine > floor + 0.04f)
+        check("but one kelp is less than a day's loss", oneKelp.traceElements.iodine < floor + 0.09f)
 
+        // One a day is a losing diet and two is a holding one, but the deficit is slower now, so the
+        // run has to be long enough for the difference to actually show: 0.04 a day against a 0.25
+        // floor takes a little over six days to fall out of the range.
         var oneADay = AlimentData.HEALTHY
         var twoADay = AlimentData.HEALTHY
-        repeat(4 * 24_000) { tick ->
+        repeat(8 * 24_000) { tick ->
             oneADay = AlimentPhysiology.tick(oneADay)
             twoADay = AlimentPhysiology.tick(twoADay)
             if (tick % 24_000 == 0) {
-                oneADay = AlimentPhysiology.iodine(oneADay, 0.10f)
-                twoADay = AlimentPhysiology.iodine(twoADay, 0.10f)
-                twoADay = AlimentPhysiology.iodine(twoADay, 0.10f)
+                oneADay = AlimentPhysiology.iodine(oneADay, 0.05f)
+                twoADay = AlimentPhysiology.iodine(twoADay, 0.05f)
+                twoADay = AlimentPhysiology.iodine(twoADay, 0.05f)
             }
         }
         logger.info(
-            "PHYS iodine after four days: one kelp a day {} two a day {}",
+            "PHYS iodine after eight days: one kelp a day {} two a day {}",
             oneADay.traceElements.iodine, twoADay.traceElements.iodine,
         )
         check("one kelp a day does not hold the reference range", oneADay.traceElements.iodine < Mineral.IODINE.safeLow)
@@ -663,13 +735,18 @@ class AlimentPhysiologySelfTest : ModInitializer {
         check("too much kelp pushes iodine into excess", tooMuch.traceElements.direction > 0)
         check("an iodine excess is reported as an imbalance", tooMuch.hasTraceElementImbalance)
 
-        // Nothing stores it: the surplus is drained at the same rate as the rest, all the way down.
+        // Nothing stores it: the surplus is drained away, and the surplus term makes it go sooner
+        // than the flat leak alone would. Twelve days is comfortably more than the two stretches this
+        // is made of - about four and a half days for the 0.45 of excess to be cleared, then the five
+        // days the flat leak needs for the rest - and is deliberately not tuned to the exact figure,
+        // so that a small retune of either rate does not fail a check about *storage*.
         var recovered = tooMuch
-        repeat(6 * 24_000) { recovered = AlimentPhysiology.tick(recovered) }
+        repeat(12 * 24_000) { recovered = AlimentPhysiology.tick(recovered) }
         check(
             "an iodine excess is drained away rather than stored",
             abs(recovered.traceElements.iodine - floor) < 0.001f,
         )
+        surplusClearsFasterThanTheLeak()
 
         // A sustained fever sweats iodine out on top of the leak. The temperature is pinned every tick
         // because a fever that is not fed by an infection or a pyrogen would otherwise break within a
@@ -685,6 +762,39 @@ class AlimentPhysiologySelfTest : ModInitializer {
             sober.traceElements.iodine, feverish.traceElements.iodine,
         )
         check("a fever drains iodine faster than the leak alone", feverish.traceElements.iodine < sober.traceElements.iodine)
+    }
+
+    /**
+     * A surplus of iodine leaves faster than the flat leak takes it, and a shortfall does not.
+     *
+     * This is the half of the change that has to be pinned separately, because "five days from normal
+     * to the floor" and "a surplus clears sooner" pull in opposite directions on the same line of the
+     * model: a leak that scaled with the value itself would satisfy the second and quietly break the
+     * first. So the check compares a surplus body and a normal body over the same ticks and requires
+     * the surplus to have lost *more* - while the depletion test above still holds the flat figure
+     * exactly from normal down.
+     */
+    private fun surplusClearsFasterThanTheLeak() {
+        val surplus = AlimentData.HEALTHY.copy(traceElements = TraceElements.HEALTHY.withIodine(1.0f))
+        val normal = AlimentData.HEALTHY
+
+        var afterSurplus = surplus
+        var afterNormal = normal
+        repeat(12_000) {
+            afterSurplus = AlimentPhysiology.tick(afterSurplus)
+            afterNormal = AlimentPhysiology.tick(afterNormal)
+        }
+
+        val surplusLoss = surplus.traceElements.iodine - afterSurplus.traceElements.iodine
+        val normalLoss = normal.traceElements.iodine - afterNormal.traceElements.iodine
+        logger.info("PHYS iodine loss in half a day: from 1.00 {} from 0.50 {}", surplusLoss, normalLoss)
+
+        check("a surplus is cleared faster than a normal store is", surplusLoss > normalLoss)
+        // ...and the difference is the surplus term, not a rounding artefact. Half a day of the excess
+        // term on 0.50 of excess, at 0.000002 per tick, is 0.012 - so anything above the flat leak by
+        // a hundredth is the term and not noise.
+        check("and the difference is large enough to be the surplus term", surplusLoss - normalLoss > 0.01f)
+        check("a normal store is still drained by the flat leak alone", abs(normalLoss - 0.45f * 12000 / 120000) < 0.001f)
     }
 
     private fun vitaminCDepletion() {
@@ -718,7 +828,7 @@ class AlimentPhysiologySelfTest : ModInitializer {
             // Iodine has no homeostat any more, and the thyroid reads it: without a day's kelp the
             // set point sinks and this stops being a test of thermoregulation. See [iodineDepletion].
             if (it % 24_000 == 0) {
-                data = AlimentPhysiology.iodine(data, 0.15f)
+                data = AlimentPhysiology.iodine(data, 0.10f)
             }
             min = minOf(min, data.temperature)
             max = maxOf(max, data.temperature)
@@ -879,8 +989,9 @@ class AlimentPhysiologySelfTest : ModInitializer {
      */
     private fun thyroidMovesTheSetPoint() {
         val iodine = Mineral.IODINE
-        // A deficit below the reference range, and an excess above it, both realistic values.
-        var hypothyroid = AlimentData.HEALTHY.copy(traceElements = TraceElements(0.30f))
+        // A deficit below the reference range, and an excess above it, both realistic values. The
+        // deficit has to sit under safeLow - which is 0.25 - or this is a test of a euthyroid body.
+        var hypothyroid = AlimentData.HEALTHY.copy(traceElements = TraceElements(0.20f))
         var hyperthyroid = AlimentData.HEALTHY.copy(traceElements = TraceElements(1.10f))
         repeat(12_000) {
             hypothyroid = AlimentPhysiology.tick(hypothyroid)
@@ -1756,6 +1867,16 @@ class AlimentPhysiologySelfTest : ModInitializer {
         expect(player, "thyrotoxicosis causes nausea", at(iodine, iodine.safeHigh + 0.01f), MobEffects.NAUSEA)
         expect(player, "and an appetite without weight gain", at(iodine, iodine.safeHigh + 0.01f), MobEffects.HUNGER)
 
+        // The requested behaviour, stated as a player would meet it: a store that has lost half of
+        // itself is *silent*, and one that has lost a little more is not. The loop above already covers
+        // the rule at the band's own edges; this is the one place the band's actual value is asserted
+        // through the symptom layer, so moving the floor back to 0.40 fails here rather than only in
+        // the two literal comparisons in `homeostasis`.
+        applyWith(player, at(iodine, 0.30f))
+        check("a third of the iodine gone is not yet a symptom", player.activeEffects.isEmpty())
+        applyWith(player, at(iodine, 0.24f))
+        check("but below a quarter of the normal value it is", player.activeEffects.isNotEmpty())
+
         val vitC = Mineral.VITAMIN_C
         expect(player, "vitamin C deficiency causes mining fatigue", at(vitC, vitC.safeLow - 0.01f), MobEffects.MINING_FATIGUE)
         expect(player, "severe vitamin C deficiency causes mining fatigue", at(vitC, vitC.severeLow - 0.01f), MobEffects.MINING_FATIGUE)
@@ -1816,6 +1937,188 @@ class AlimentPhysiologySelfTest : ModInitializer {
         val mildFever = player.getEffect(MobEffects.WEAKNESS)?.amplifier ?: -1
         logger.info("PHYS weakness amplifier: 40.5 C -> {} 39.0 C -> {}", superHigh, mildFever)
         check("a super-high fever is worse than a mild one", superHigh > mildFever)
+
+        feverAndPainIndicators(player)
+    }
+
+    /**
+     * The two indicators: a fever, and the ache that comes with it.
+     *
+     * They are the only effects in the mod that do nothing, so what has to be tested is not what
+     * they do but what they say - and that they really do nothing. That comes out as four layers:
+     *
+     *  - the grade itself, pinned on both sides of all three thresholds;
+     *  - the proof that the middle threshold is *not* a symptom threshold, which is the whole reason
+     *    the grade is a second scale instead of a third value of `thermalTier`;
+     *  - that the effects are inert: no attribute modifier, nothing instantaneous, and an icon and a
+     *    name for the HUD to draw;
+     *  - and that a live player gets the right icon, and loses it again when the fever drops.
+     *
+     * That last layer is the one that would otherwise ship broken. Vanilla's effect merging keeps
+     * the *stronger* of two amplifiers, so an implementation that only ever calls `addEffect` looks
+     * perfect on the way up and then leaves the icon reading III after the fever has fallen to I.
+     * Catching that needs [continueWith] rather than [applyWith]: the bug only exists when a stale
+     * amplifier is already on the player, and a clean slate is exactly what removes it.
+     *
+     * It also has to read the temperature back rather than assert against the one it fed in: the
+     * tick runs the model first, so a temperature handed in on a threshold is no longer on it by the
+     * time the icon is picked, and pinning the icon to the input would be asserting the float. The
+     * thresholds themselves are pinned exactly in the first layer, where nothing ticks.
+     */
+    private fun feverAndPainIndicators(player: ServerPlayer) {
+        fun grade(temperature: Float) = AlimentData.HEALTHY.copy(temperature = temperature).feverGrade
+        fun hurts(temperature: Float) = AlimentData.HEALTHY.copy(temperature = temperature).hasPain
+
+        // --- the grade, on both sides of every threshold it has
+        check("38.4 C is no fever", grade(38.4f) == 0)
+        check("38.5 C is fever one", grade(38.5f) == 1)
+        check("39.4 C is still fever one", grade(39.4f) == 1)
+        check("39.5 C is fever two", grade(39.5f) == 2)
+        check("39.9 C is still fever two", grade(39.9f) == 2)
+        check("40.0 C is fever three", grade(40f) == 3)
+        check("41.0 C is still fever three, there is no fourth grade", grade(41f) == 3)
+        check("and a healthy body is grade zero", grade(AlimentData.TEMPERATURE_NORMAL) == 0)
+
+        // --- the ache is its own single step, and it sits at the middle of the three
+        check("38.5 C does not hurt", !hurts(38.5f))
+        check("39.4 C does not hurt", !hurts(39.4f))
+        check("39.5 C hurts", hurts(39.5f))
+        check("40.0 C hurts, and no more than 39.5 does", hurts(40f))
+
+        // --- 39.5 is a display threshold and nothing else. If either of these ever fails the grade
+        //     has stopped being an indicator and started being a symptom, and the middle step is
+        //     what has to come back out - not the symptom tier.
+        check(
+            "the symptom tier has no step at 39.5",
+            AlimentData.HEALTHY.copy(temperature = 39.4f).thermalTier ==
+                AlimentData.HEALTHY.copy(temperature = 39.5f).thermalTier,
+        )
+        check("39.5 C is still the first symptom tier", AlimentData.HEALTHY.copy(temperature = 39.5f).thermalTier == 1)
+
+        // --- both effects are inert. An attribute modifier is the only way an effect can change a
+        //     body, and an instantaneous effect is the other way; this is what keeps them absent.
+        for ((name, effect) in listOf("fever" to AlimentEffects.FEVER, "pain" to AlimentEffects.PAIN)) {
+            val value = effect.value()
+            var modifiers = 0
+            value.createModifiers(0) { _, _ -> modifiers++ }
+            check("aliment:$name carries no attribute modifier", modifiers == 0)
+            check("aliment:$name is not instantaneous", !value.isInstantaneous)
+            check("aliment:$name is filed as harmful", value.category == MobEffectCategory.HARMFUL)
+            check(
+                "aliment:$name is named after the id the engine looks up",
+                value.descriptionId == "effect.aliment.$name",
+            )
+        }
+
+        // --- the icons. A missing one is not a crash or even a log line: it is a magenta square
+        //     where the icon should be, which is exactly the sort of thing that reaches a release.
+        for (name in listOf("fever", "pain")) {
+            check(
+                "aliment:$name has an icon on the classpath",
+                javaClass.getResource("/assets/${Aliment.MOD_ID}/textures/mob_effect/$name.png") != null,
+            )
+        }
+
+        // --- and every language names them, looked up by the id the engine will actually use
+        for (language in listOf("en_us", "zh_cn", "ja_jp", "ko_kr")) {
+            val keys = languageKeys(language)
+            check("aliment:fever is named in $language", AlimentEffects.FEVER.value().descriptionId in keys)
+            check("aliment:pain is named in $language", AlimentEffects.PAIN.value().descriptionId in keys)
+        }
+
+        // --- what the player is actually handed. The temperature is read back out of the attachment
+        //     rather than taken from the input, because `AlimentSymptoms.tick` runs the model before
+        //     it runs the effect pass: one tick moves the temperature towards the set point, so 38.5
+        //     going in is not 38.5 by the time the icon is chosen, and asserting against the input
+        //     would be testing the float rather than the wiring. What is asserted is the agreement.
+        for (input in listOf(36.5f, 37f, 38f, 38.4f, 38.5f, 39f, 39.5f, 39.7f, 40f, 40.5f)) {
+            applyWith(player, AlimentData.HEALTHY.copy(temperature = input))
+            val settled = player.getAttachedOrCreate(AlimentAttachments.DATA)
+            val grade = settled.feverGrade
+            val icon = player.getEffect(AlimentEffects.FEVER)
+            logger.info(
+                "PHYS indicator: {} C settles at {} -> grade {} icon {} pain {}",
+                input, settled.temperature, grade, icon?.amplifier, player.hasEffect(AlimentEffects.PAIN),
+            )
+            check("at $input C the fever icon is on exactly when the grade is not zero", (icon != null) == (grade > 0))
+            check("at $input C the fever icon reads the grade", icon == null || icon.amplifier == grade - 1)
+            check(
+                "at $input C the pain icon follows the threshold",
+                player.hasEffect(AlimentEffects.PAIN) == settled.hasPain,
+            )
+        }
+
+        // --- and the three bands end to end, at temperatures a single tick cannot carry across a
+        //     threshold, so that "which grade" is pinned and not just "some grade"
+        applyWith(player, AlimentData.HEALTHY.copy(temperature = 38f))
+        check("a body at 38 C shows no fever", !player.hasEffect(AlimentEffects.FEVER))
+        applyWith(player, AlimentData.HEALTHY.copy(temperature = 39f))
+        check("a body at 39 C shows fever one", player.getEffect(AlimentEffects.FEVER)?.amplifier == 0)
+        check("and no pain", !player.hasEffect(AlimentEffects.PAIN))
+        applyWith(player, AlimentData.HEALTHY.copy(temperature = 39.7f))
+        check("a body at 39.7 C shows fever two", player.getEffect(AlimentEffects.FEVER)?.amplifier == 1)
+        check("and pain", player.getEffect(AlimentEffects.PAIN)?.amplifier == 0)
+        applyWith(player, AlimentData.HEALTHY.copy(temperature = 40.5f))
+        check("a body at 40.5 C shows fever three", player.getEffect(AlimentEffects.FEVER)?.amplifier == 2)
+        check("and pain at one level only", player.getEffect(AlimentEffects.PAIN)?.amplifier == 0)
+
+        // --- the way back down. `applyWith` wipes the effect list, so this only says that the state
+        //     produces the right icon; the pass that has to bring an existing icon down is next.
+        applyWith(player, AlimentData.HEALTHY.copy(temperature = 39f))
+        logger.info(
+            "PHYS indicators at 39.0 C: fever {} pain {}",
+            player.getEffect(AlimentEffects.FEVER)?.amplifier,
+            player.hasEffect(AlimentEffects.PAIN),
+        )
+        check("dropping back to 39 C leaves the icon at fever one", player.getEffect(AlimentEffects.FEVER)?.amplifier == 0)
+        check("and takes the pain icon off", !player.hasEffect(AlimentEffects.PAIN))
+
+        applyWith(player, AlimentData.HEALTHY.copy(temperature = 37f))
+        check("a healthy temperature takes the fever icon off", !player.hasEffect(AlimentEffects.FEVER))
+
+        // --- and the same descent with the effect list left alone, which is what happens in play:
+        //     nothing wipes it between passes, so a fever falling from 40.5 to 39 has to bring its
+        //     own icon down from III to I. This is the only place that can catch an implementation
+        //     which only ever calls `addEffect`, because everywhere else the slate is already clean.
+        applyWith(player, AlimentData.HEALTHY.copy(temperature = 40.5f))
+        check("a fever at 40.5 C puts the icon at three", player.getEffect(AlimentEffects.FEVER)?.amplifier == 2)
+        continueWith(player, AlimentData.HEALTHY.copy(temperature = 39f))
+        logger.info(
+            "PHYS indicator across passes: 40.5 -> 39.0 C leaves fever {} pain {}",
+            player.getEffect(AlimentEffects.FEVER)?.amplifier,
+            player.hasEffect(AlimentEffects.PAIN),
+        )
+        check("and it comes down to one when the fever falls", player.getEffect(AlimentEffects.FEVER)?.amplifier == 0)
+        check("and the pain icon goes with it", !player.hasEffect(AlimentEffects.PAIN))
+        continueWith(player, AlimentData.HEALTHY.copy(temperature = 39.7f))
+        check("and goes back up to two when it rises again", player.getEffect(AlimentEffects.FEVER)?.amplifier == 1)
+        check("with the pain icon back", player.hasEffect(AlimentEffects.PAIN))
+        continueWith(player, AlimentData.HEALTHY.copy(temperature = 37f))
+        check("and off entirely once the fever breaks", !player.hasEffect(AlimentEffects.FEVER))
+
+        // --- the icon says what the temperature is, not how long is left on it, so there must be
+        //     no duration for the HUD to count down
+        applyWith(player, AlimentData.HEALTHY.copy(temperature = 40.5f))
+        check(
+            "the fever icon has no duration to count down",
+            player.getEffect(AlimentEffects.FEVER)?.isInfiniteDuration == true,
+        )
+        check(
+            "and neither does the pain icon",
+            player.getEffect(AlimentEffects.PAIN)?.isInfiniteDuration == true,
+        )
+
+        // --- and the indicator is not a symptom: the weakness at that temperature is still the
+        //     symptom tier's amplifier, and the grade is reading higher than the tier it comes from
+        val atTheTop = player.getAttachedOrCreate(AlimentAttachments.DATA)
+        check(
+            "the fever icon does not deepen the weakness",
+            player.getEffect(MobEffects.WEAKNESS)?.amplifier == abs(atTheTop.thermalTier) - 1,
+        )
+        check(
+            "and the grade sits above what the symptom tier implies",
+            atTheTop.feverGrade - 1 > abs(atTheTop.thermalTier) - 1,
+        )
     }
 
     /**
@@ -1964,6 +2267,23 @@ class AlimentPhysiologySelfTest : ModInitializer {
         player.setAttached(AlimentAttachments.RUNTIME, AlimentRuntime())
         // Damage has twenty ticks of invulnerability after it lands, which would silently swallow
         // the second and third assertion in a row; every tick here is meant to be independent.
+        player.setInvulnerableTime(0)
+        AlimentSymptoms.tick(player)
+    }
+
+    /**
+     * Runs one real server tick against [data] but leaves whatever effects [player] already has.
+     *
+     * [applyWith] wipes the effect list, which is right for "what does this state produce" and wrong
+     * for "what happens to an icon that is already there". In play nothing clears the list between
+     * passes, so a fever that falls from 40.5 to 39 has to bring its own icon down, and that is the
+     * case vanilla's effect merging gets wrong - it keeps the *stronger* of two amplifiers. A clean
+     * slate cannot reach it, because the stale amplifier is exactly what the slate removes.
+     */
+    private fun continueWith(player: ServerPlayer, data: AlimentData) {
+        player.setAttached(AlimentAttachments.DATA, data)
+        // The effect pass runs on a cadence; a fresh runtime sits on it.
+        player.setAttached(AlimentAttachments.RUNTIME, AlimentRuntime())
         player.setInvulnerableTime(0)
         AlimentSymptoms.tick(player)
     }
@@ -2163,6 +2483,78 @@ class AlimentPhysiologySelfTest : ModInitializer {
         logger.info("PHYS back in survival after a tick: bacteria {} temperature {}", resumed.bacteria, resumed.temperature)
         check("going back to survival resumes the model", resumed.bacteria < frozen.bacteria || resumed.temperature != frozen.temperature)
         check("and the fever shimmer comes back", player.getPostEffects().contains(AlimentSymptoms.HEAT_HAZE))
+    }
+
+    /**
+     * The glucose hold again, this time through a real player and the real difficulty setting.
+     *
+     * [glucoseHeldInPeaceful] drives the flag by hand; this asks where the flag actually comes from, so
+     * a hold that read the difficulty wrongly - or was never wired to it at all - fails here instead of
+     * passing on the model's behalf. It is the only thing in the mod that moves the world's difficulty,
+     * and it puts it back.
+     */
+    private fun peacefulHoldsGlucose(level: ServerLevel) {
+        val server = level.server
+        val difficulty = level.difficulty
+        val player = FakePlayer.get(level)
+        try {
+            player.setGameMode(GameType.SURVIVAL)
+
+            server.setDifficulty(Difficulty.NORMAL, true)
+            check("a normal world does not hold the sugar", !AlimentSymptoms.isGlucoseHeld(player))
+            server.setDifficulty(Difficulty.PEACEFUL, true)
+            logger.info("PHYS difficulty now {} on the overworld", level.difficulty)
+            check("peaceful does", AlimentSymptoms.isGlucoseHeld(player))
+
+            // Two thousand ticks is a sixteenth of the fasting drop: far more than the rounding in the
+            // readout, and short enough to run the whole symptom pass rather than the model alone.
+            player.setAttached(
+                AlimentAttachments.DATA,
+                AlimentData.HEALTHY.copy(glucose = AlimentData.GLUCOSE_NORMAL),
+            )
+            repeat(2_000) { AlimentSymptoms.tick(player) }
+            val held = player.getAttachedOrCreate(AlimentAttachments.DATA)
+            logger.info("PHYS peaceful after 2000 real ticks: glucose {}", held.glucose)
+            check("a peaceful body's glucose does not move", held.glucose == AlimentData.GLUCOSE_NORMAL)
+
+            ItemStack(Items.BREAD, 1).finishUsingItem(level, player)
+            val fed = player.getAttachedOrCreate(AlimentAttachments.DATA)
+            logger.info("PHYS peaceful after a loaf of bread: glucose {}", fed.glucose)
+            check("and a meal does not move it either", fed.glucose == AlimentData.GLUCOSE_NORMAL)
+
+            // Leaving, and the same loop drains. Without this the checks above would also pass on a
+            // model that had simply stopped, which is the failure they exist to catch.
+            server.setDifficulty(Difficulty.NORMAL, true)
+            repeat(2_000) { AlimentSymptoms.tick(player) }
+            val free = player.getAttachedOrCreate(AlimentAttachments.DATA)
+            logger.info("PHYS normal after the same 2000 real ticks: glucose {}", free.glucose)
+            check("leaving peaceful lets it drain again", free.glucose < AlimentData.GLUCOSE_NORMAL)
+
+            // What holding rather than clearing means for a body that was already crashing. This is a
+            // consequence of the design and not a fault in it, so it is pinned rather than left to be
+            // discovered: the crash does not improve on its own and food cannot help, because the one
+            // thing that could raise the sugar went off along with everything else.
+            //
+            // Only the damage the tick *asks for* is asserted here. `FakePlayer` is invulnerable, so
+            // its health bar cannot move and says nothing either way - whether a held crash can
+            // actually kill on peaceful is settled by vanilla rather than by this suite, and the two
+            // numbers that settle it are in docs/PHYSIOLOGY.md.
+            server.setDifficulty(Difficulty.PEACEFUL, true)
+            player.setAttached(AlimentAttachments.DATA, AlimentData.HEALTHY.copy(glucose = 0.5f))
+            repeat(200) { AlimentSymptoms.tick(player) }
+            val stuck = player.getAttachedOrCreate(AlimentAttachments.DATA)
+            logger.info(
+                "PHYS held crash: glucose {} tier {} asking for {} damage a pass",
+                stuck.glucose, stuck.hypoglycemiaTier, stuck.hypoglycemiaDamage,
+            )
+            check("a body that enters peaceful crashing stays crashing", stuck.glucose == 0.5f)
+            check("and the crash is still asking for its damage", stuck.hypoglycemiaDamage > 0f)
+        } finally {
+            player.setGameMode(GameType.SURVIVAL)
+            player.removeAllEffects()
+            player.setAttached(AlimentAttachments.DATA, AlimentData.HEALTHY)
+            server.setDifficulty(difficulty, true)
+        }
     }
 
     /**
@@ -2713,7 +3105,7 @@ class AlimentPhysiologySelfTest : ModInitializer {
 
         // Kelp is the only iodine source. Start from a real deficiency rather than a normal body.
         val deficient = AlimentData.HEALTHY.copy(
-            traceElements = TraceElements.HEALTHY.withIodine(0.30f),
+            traceElements = TraceElements.HEALTHY.withIodine(0.15f),
         )
         player.setAttached(AlimentAttachments.DATA, deficient)
         ItemStack(Items.KELP, 1).finishUsingItem(level, player)
@@ -2722,8 +3114,8 @@ class AlimentPhysiologySelfTest : ModInitializer {
         ItemStack(Items.DRIED_KELP, 1).finishUsingItem(level, player)
         val afterDried = player.getAttachedOrCreate(AlimentAttachments.DATA).traceElements.iodine
         logger.info("PHYS iodine from kelp {} / dried kelp {}", afterKelp, afterDried)
-        check("kelp adds 0.10 umol/L of iodine", abs(afterKelp - 0.40f) < 0.001f)
-        check("dried kelp adds 0.20 umol/L", abs(afterDried - 0.50f) < 0.001f)
+        check("kelp adds 0.05 umol/L of iodine", abs(afterKelp - 0.20f) < 0.001f)
+        check("dried kelp adds 0.10 umol/L", abs(afterDried - 0.25f) < 0.001f)
 
         // Seaweed and Cooked Seaweed: direct rich sources of iodine.
         player.setAttached(AlimentAttachments.DATA, deficient)
@@ -2733,12 +3125,12 @@ class AlimentPhysiologySelfTest : ModInitializer {
         ItemStack(AlimentItems.COOKED_SEAWEED, 1).finishUsingItem(level, player)
         val afterCookedSeaweed = player.getAttachedOrCreate(AlimentAttachments.DATA).traceElements.iodine
         logger.info("PHYS iodine from seaweed {} / cooked seaweed {}", afterSeaweed, afterCookedSeaweed)
-        check("raw seaweed adds 0.20 umol/L of iodine", abs(afterSeaweed - 0.50f) < 0.001f)
-        check("cooked seaweed adds 0.25 umol/L of iodine", abs(afterCookedSeaweed - 0.55f) < 0.001f)
+        check("raw seaweed adds 0.10 umol/L of iodine", abs(afterSeaweed - 0.25f) < 0.001f)
+        check("cooked seaweed adds 0.125 umol/L of iodine", abs(afterCookedSeaweed - 0.275f) < 0.001f)
         player.setAttached(AlimentAttachments.DATA, deficient)
         ItemStack(AlimentItems.SEAWEED_IODIZED_SALT, 1).finishUsingItem(level, player)
         val afterSalt = player.getAttachedOrCreate(AlimentAttachments.DATA)
-        check("seaweed iodized salt adds 0.40 umol/L of iodine", abs(afterSalt.traceElements.iodine - 0.70f) < 0.001f)
+        check("seaweed iodized salt adds 0.20 umol/L of iodine", abs(afterSalt.traceElements.iodine - 0.35f) < 0.001f)
 
         // Vitamin C plant food sources:
         val vitCDeficient = AlimentData.HEALTHY.copy(
@@ -3157,6 +3549,235 @@ class AlimentPhysiologySelfTest : ModInitializer {
         val extra = (inflammation - base.inflammation) / Mediators.CYTOKINE_WEIGHT
         return base.copy(
             mediators = base.mediators.withCytokine((base.mediators.cytokine + extra).coerceIn(0f, Mediators.MAX)),
+        )
+    }
+
+    /**
+     * The `/aliment status` readout, and the one thing about it worth testing hard: that it really is
+     * *every* metric.
+     *
+     * The command is documented that way and it had already drifted - the entire glucose chain and
+     * the liver were missing from it - so the assertion that earns its place is the completeness one,
+     * not any particular line. The fields the state actually has are read off [AlimentData] by
+     * reflection and each has to be accounted for, which means a field added to the state without a
+     * line in the readout fails this **by name** rather than quietly going unprinted.
+     *
+     * The rest pins the lines that are new, including the one place the readout deliberately reports
+     * two different things about the same temperature: the fever grade has three steps where the
+     * symptom tier beside it has two.
+     */
+    private fun statusReadout() {
+        val healthy = AlimentCommand.statusLines(AlimentData.HEALTHY)
+        for (line in healthy) {
+            logger.info("PHYS status |{}", line)
+        }
+
+        // --- completeness. Reflection for "what the state has", because a literal list of fields is
+        //     exactly the thing that goes stale. But reflection alone is not enough and it is worth
+        //     being precise about why: comparing the declared fields to a second list of names would
+        //     be a comparison between two lists, and no edit to the readout could ever fail it.
+        //     Deleting the liver line outright leaves it green. So each field is also paired with a
+        //     fragment of text that only its line can produce, and that pairing is what gets matched
+        //     against the output the command really returns.
+        //
+        //     The fragments differ from the field names where the readout uses another word:
+        //     `insulinAspart` is the "injected" figure, `immuneActive` appears only as a tag on the
+        //     pathogens line when it is set, and `mediators` and `traceElements` are groups named by
+        //     a member rather than by themselves.
+        val evidence = mapOf(
+            "mediators" to "histamine",
+            "bacteria" to "bacteria",
+            "virus" to "virus",
+            "water" to "water",
+            "electrolytes" to "electrolytes",
+            "traceElements" to "VitC",
+            "salicin" to "salicin",
+            "dexamethasone" to "dexamethasone",
+            "temperature" to "temperature",
+            "pyrogen" to "pyrogen",
+            "scopolamine" to "scopolamine",
+            "atropine" to "atropine",
+            "psilocybin" to "psilocybin",
+            "psilocin" to "psilocin",
+            "ephedrine" to "ephedrine",
+            "immuneActive" to "pathogens",
+            "berberine" to "berberine",
+            "glycyrrhizin" to "glycyrrhizin",
+            "naringin" to "naringin",
+            "ethanol" to "ethanol",
+            "glucose" to "glucose",
+            "insulin" to "insulin",
+            "insulinAspart" to "injected",
+            "cyp3a4" to "CYP3A4",
+        )
+        val text = healthy.joinToString("\n")
+        val stored = AlimentData::class.java.declaredFields
+            .filterNot { it.isSynthetic || Modifier.isStatic(it.modifiers) }
+            .map { it.name }
+            .toSet()
+        val unprinted = evidence.filterValues { !text.contains(it) }.keys
+        logger.info(
+            "PHYS status: {} of {} stored fields, {} fragments checked, unprinted {}",
+            stored.size, stored.size, evidence.size, unprinted,
+        )
+        check(
+            "every stored field is accounted for in the status readout (missing: ${stored - evidence.keys})",
+            stored - evidence.keys == emptySet<String>(),
+        )
+        check(
+            "and the readout claims nothing the state does not have (extra: ${evidence.keys - stored})",
+            evidence.keys - stored == emptySet<String>(),
+        )
+        check("every stored field is actually printed in the readout (unprinted: $unprinted)", unprinted.isEmpty())
+
+        // The indicators are the one line the reflection above cannot cover, because neither is a
+        // stored field: both are getters over the temperature, so nothing in the state declares them.
+        check("the readout has a line for the indicators", text.contains("indicators"))
+
+        // --- the two indicators, at the top of the scale and at rest
+        val hot = AlimentCommand.statusLines(AlimentData.HEALTHY.copy(temperature = 40.5f))
+        logger.info("PHYS status at 40.5 C: {}", hot.first { it.contains("indicators") })
+        check(
+            "a fever of 40.5 C reads as fever three with pain",
+            hot.any { it.contains("fever III") && it.contains("pain I") },
+        )
+        check(
+            "and the symptom tier on the line above it says something else, which is the point",
+            hot.any { it.contains("temperature 40.5") && it.contains("super-high fever") },
+        )
+        check(
+            "a healthy body reads as neither indicator",
+            healthy.any { it.contains("fever -") && it.contains("pain -") },
+        )
+        check(
+            "39.0 C reads as fever one with no pain",
+            AlimentCommand.statusLines(AlimentData.HEALTHY.copy(temperature = 39f))
+                .any { it.contains("fever I") && it.contains("pain -") },
+        )
+
+        // --- the two lines whose state is a stored field rather than a getter, so the test has to set
+        //     the field the model would have set and not only the cause it is derived from
+        val crash = AlimentCommand.statusLines(AlimentData.HEALTHY.copy(glucose = 1f)).first()
+        val hypo = AlimentCommand.statusLines(AlimentData.HEALTHY.copy(glucose = 1.8f)).first()
+        logger.info("PHYS status condition at glucose 1.0: {} / at 1.8: {}", crash, hypo)
+        check("a hypoglycaemic crash is named on the condition line", crash.contains("hypoglycaemic crash"))
+        check("a hypo that is not yet doing damage is named without the crash", hypo.contains("hypoglycaemic") && !hypo.contains("crash"))
+        check("a healthy body is named healthy", healthy.first() == "aliment: healthy")
+        check(
+            "an inhibited enzyme is marked, and 10.0 is the deepest the curve goes",
+            AlimentCommand.statusLines(AlimentData.HEALTHY.copy(naringin = 10f, cyp3a4 = 10f))
+                .any { it.contains("naringin 10.0/10") && it.contains("[inhibited]") },
+        )
+        check("and an untouched one is not", !healthy.any { it.contains("[inhibited]") })
+        check(
+            "the immune latch is only printed once the body has noticed",
+            !healthy.any { it.contains("immune response active") }
+                && AlimentCommand.statusLines(AlimentData.HEALTHY.copy(bacteria = 30f, immuneActive = true))
+                    .any { it.contains("immune response active") },
+        )
+
+        // --- the peaceful hold, which is a property of the world rather than of the body, so it is
+        //     the one thing on the readout the state cannot be asked about on its own.
+        val heldLines = AlimentCommand.statusLines(AlimentData.HEALTHY, true)
+        logger.info("PHYS status glucose line while held: {}", heldLines.first { it.contains("glucose") })
+        check("the glucose line says when the sugar is being held", heldLines.any { it.contains("[held: peaceful]") })
+        check("and does not say it otherwise", !text.contains("[held: peaceful]"))
+        check(
+            "the hold is printed beside the crash rather than instead of it",
+            AlimentCommand.statusLines(AlimentData.HEALTHY.copy(glucose = 1f), true)
+                .any { it.contains("[hypoglycaemic crash") && it.contains("[held: peaceful]") },
+        )
+    }
+
+    /**
+     * The sugar curve's off switch, from the model's side. Peaceful difficulty sets it.
+     *
+     * Every way into the blood glucose is checked on its own, because "the hold works" is only true
+     * if it closes all of them: the fasting drain, the body's own insulin clearing a load, an injected
+     * dose of aspart, and a meal. The meal is why the hold is on `addGlucose` as well as on the tick -
+     * the tick only ever takes glucose *away*, so a hold that stopped there would leave eating as the
+     * one thing still able to move a sugar it had pinned.
+     *
+     * Holding is not clearing, and the last block says so in the strongest form available: a held
+     * tick differs from a free one in exactly one field, so the switch cannot be quietly changing
+     * anything else on its way past.
+     */
+    private fun glucoseHeldInPeaceful() {
+        val normal = AlimentData.TEMPERATURE_NORMAL
+
+        // 1. The fasting drain, which is the only thing moving a healthy body's sugar.
+        var freeFasting = AlimentData.HEALTHY.copy(glucose = AlimentData.GLUCOSE_NORMAL)
+        var heldFasting = freeFasting
+        repeat(6_000) {
+            freeFasting = AlimentPhysiology.tick(freeFasting)
+            heldFasting = AlimentPhysiology.tick(heldFasting, normal, true)
+        }
+        logger.info(
+            "PHYS glucose after 6000 fasting ticks: free {} held {}",
+            freeFasting.glucose, heldFasting.glucose,
+        )
+        check("a fasting body drains", freeFasting.glucose < AlimentData.GLUCOSE_NORMAL)
+        check("and a held one does not move at all", heldFasting.glucose == AlimentData.GLUCOSE_NORMAL)
+
+        // 2. The body's own insulin, which is what disposes of a load rather than holding a baseline.
+        var freeLoad = AlimentData.HEALTHY.copy(glucose = 9f)
+        var heldLoad = freeLoad
+        repeat(6_000) {
+            freeLoad = AlimentPhysiology.tick(freeLoad)
+            heldLoad = AlimentPhysiology.tick(heldLoad, normal, true)
+        }
+        logger.info(
+            "PHYS glucose after 6000 ticks from 9.0: free {} held {}",
+            freeLoad.glucose, heldLoad.glucose,
+        )
+        check("a sugar load is disposed of", freeLoad.glucose < 9f)
+        check("and a held one is left exactly where it was", heldLoad.glucose == 9f)
+
+        // 3. Injected aspart, which has no brake and would otherwise take a body under the reference
+        //    range inside the same stretch.
+        val injected = AlimentPhysiology.injectInsulin(
+            AlimentData.HEALTHY.copy(glucose = AlimentData.GLUCOSE_NORMAL),
+        )
+        var freeInjected = injected
+        var heldInjected = injected
+        repeat(6_000) {
+            freeInjected = AlimentPhysiology.tick(freeInjected)
+            heldInjected = AlimentPhysiology.tick(heldInjected, normal, true)
+        }
+        logger.info(
+            "PHYS glucose after an injection and 6000 ticks: free {} held {}",
+            freeInjected.glucose, heldInjected.glucose,
+        )
+        check("injected insulin takes the sugar down", freeInjected.glucose < AlimentData.GLUCOSE_NORMAL)
+        check("and the hold stops that too", heldInjected.glucose == AlimentData.GLUCOSE_NORMAL)
+
+        // 4. Food, the one rise in the system.
+        val fed = AlimentPhysiology.addGlucose(AlimentData.HEALTHY, AlimentData.GLUCOSE_PER_BREAD)
+        val fedHeld = AlimentPhysiology.addGlucose(AlimentData.HEALTHY, AlimentData.GLUCOSE_PER_BREAD, true)
+        logger.info("PHYS a loaf of bread: free {} held {}", fed.glucose, fedHeld.glucose)
+        check("a loaf raises the glucose", fed.glucose == 5.7f)
+        check("and does not raise a held one", fedHeld.glucose == AlimentData.GLUCOSE_NORMAL)
+        val lowAndHeld = AlimentPhysiology.addGlucose(
+            AlimentData.HEALTHY.copy(glucose = 3f), AlimentData.GLUCOSE_PER_BREAD, true,
+        )
+        check("so a held body cannot eat its way out of a low sugar either", lowAndHeld.glucose == 3f)
+
+        // 5. The switch touches nothing else. Insulin is included deliberately: it is a *response* to
+        //    the glucose rather than a thing that moves it, so it still follows a held level, and both
+        //    ticks below compute it from the same input.
+        var settled = AlimentData.HEALTHY.copy(glucose = 8f)
+        repeat(6_000) { settled = AlimentPhysiology.tick(settled, normal, true) }
+        val freeTick = AlimentPhysiology.tick(settled, normal, false)
+        val heldTick = AlimentPhysiology.tick(settled, normal, true)
+        logger.info(
+            "PHYS one tick from a settled 8.0: free {} held {} identical-but-for-glucose {}",
+            freeTick.glucose, heldTick.glucose, heldTick.copy(glucose = freeTick.glucose) == freeTick,
+        )
+        check("the two ticks really do differ", heldTick != freeTick)
+        check("held glucose is the input, to the last bit", heldTick.glucose == settled.glucose)
+        check(
+            "and the hold changes that one field and no other",
+            heldTick.copy(glucose = freeTick.glucose) == freeTick,
         )
     }
 

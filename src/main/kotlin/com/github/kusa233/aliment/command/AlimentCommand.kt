@@ -90,6 +90,28 @@ object AlimentCommand {
     private fun status(context: CommandContext<CommandSourceStack>): Int {
         val player = context.source.playerOrException
         val data = player.getAttachedOrCreate(AlimentAttachments.DATA)
+        for (line in statusLines(data, AlimentSymptoms.isGlucoseHeld(player))) {
+            context.source.sendSuccess({ Component.literal(line) }, false)
+        }
+        return 1
+    }
+
+    /**
+     * The whole readout `/aliment status` prints, one line per string.
+     *
+     * Split out from [status] for the same reason `AlimentInteractions.glucoseReadingMessage` is:
+     * so the self test can assert the text the command really produces rather than one it built for
+     * itself. Here that matters more than usual, because the readout is documented as *every*
+     * physiological metric and the interesting assertion is completeness - the test walks the fields
+     * the state actually has and requires each one to be accounted for. That check is the only thing
+     * standing between the promise and a field quietly going missing from it, which is what had
+     * already happened to the whole glucose chain and to the liver before it.
+     *
+     * [glucoseHeld] is the peaceful hold, and it is here rather than read from [data] because on
+     * peaceful the glucose is *held*: the stored number stops being evidence of anything, so without
+     * the tag the one line a player would want explained is the one that reads like every other.
+     */
+    internal fun statusLines(data: AlimentData, glucoseHeld: Boolean = false): List<String> {
         val e = data.electrolytes
         val m = data.mediators
         val condition = when {
@@ -98,6 +120,10 @@ object AlimentCommand {
             data.isSymptomatic -> "infected"
             data.isFebrile -> "fever"
             data.isHypothermic -> "hypothermia"
+            // The only rung here that takes hitpoints off by itself, so it outranks the imbalances
+            // rather than sitting behind them. Two rungs because the crash is the one that hurts.
+            data.hypoglycemiaDamage > 0f -> "hypoglycaemic crash"
+            data.isHypoglycemic -> "hypoglycaemic"
             data.hasElectrolyteImbalance -> "electrolyte imbalance"
             else -> "healthy"
         }
@@ -125,9 +151,33 @@ object AlimentCommand {
             "  temperature %.2f C  [%s]  pyrogen %+.2f".format(
                 data.temperature, thermalName(data.thermalTier), data.pyrogen,
             ),
-            "  pathogens  bacteria %.1f  virus %.1f%s".format(
+            // The mod's own two HUD indicators, printed even when they are off - this line is what
+            // says whether the effect bar agrees with the temperature above it. Note that the grade
+            // is deliberately not the `[%s]` on that line: it has three fever steps to the symptom
+            // scale's two, which is the whole reason it exists.
+            "  indicators  fever %s  pain %s".format(
+                if (data.feverGrade == 0) "-" else "I".repeat(data.feverGrade),
+                if (data.hasPain) "I" else "-",
+            ),
+            "  pathogens  bacteria %.1f  virus %.1f%s%s".format(
                 data.bacteria, data.virus,
+                // The latch that says the body has noticed, which it does well before the load is
+                // high enough to make the player feel it - so it explains climbing inflammation
+                // during a stretch where nothing seems to be wrong yet.
+                if (data.immuneActive) "  [immune response active]" else "",
                 if (data.isSevereInfection) "  [severe: taking damage]" else "",
+            ),
+            "  glucose %s mmol/L  (insulin %.2f, injected %.2f)%s%s".format(
+                data.glucoseReading, data.insulin, data.insulinAspart,
+                when {
+                    data.hypoglycemiaDamage > 0f -> "  [hypoglycaemic crash: taking damage]"
+                    data.isHypoglycemic -> "  [hypoglycaemic]"
+                    data.isHyperglycemic -> "  [above range]"
+                    else -> ""
+                },
+                // Added on top of the tag above rather than instead of it: a held body can be in a
+                // crash as easily as a free one, and both facts are worth reading at once.
+                if (glucoseHeld) "  [held: peaceful]" else "",
             ),
             "  drugs  salicin %.2f  dexamethasone %.2f".format(data.salicin, data.dexamethasone),
             "  mandrake  scopolamine %.2f  atropine %.2f  (load %.2f%s)%s".format(
@@ -146,16 +196,20 @@ object AlimentCommand {
             "  herbs  berberine %.2f  glycyrrhizin %.2f".format(
                 data.berberine, data.glycyrrhizin,
             ),
+            // Next to the herbs on purpose: CYP3A4 is the enzyme that clears the berberine on the
+            // line above it, so the pair is what makes "the coptis is lasting because of the
+            // grapefruit" visible in one place instead of two.
+            "  liver  naringin %.1f/%.0f  CYP3A4 %.1f%s".format(
+                data.naringin, AlimentData.NARINGIN_CAP, data.cyp3a4,
+                if (data.cyp3a4 < AlimentData.CYP3A4_NORMAL) "  [inhibited]" else "",
+            ),
             "  wine  ethanol %.2f (%.0f%%)%s".format(
                 data.ethanol,
                 data.ethanol * 100f,
                 if (data.ethanol >= 0.70f) "  [severe drunkenness]" else if (data.ethanol >= 0.35f) "  [drunkenness]" else "",
             ),
         )
-        for (line in lines) {
-            context.source.sendSuccess({ Component.literal(line) }, false)
-        }
-        return 1
+        return lines
     }
 
     /** The symbol `/aliment status` prints for [mineral]. */

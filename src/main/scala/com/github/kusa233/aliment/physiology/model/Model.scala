@@ -82,8 +82,16 @@ object MineralRanges {
   /** 2.10-2.60 mmol/L. */
   val CALCIUM: ModelMineral = new ModelMineral("CALCIUM", "mmol/L", 2.35f, 2.1f, 2.6f, 1.8f, 3f, 1f, 4f)
 
-  /** 0.40-0.80 umol/L of serum iodine. */
-  val IODINE: ModelMineral = new ModelMineral("IODINE", "umol/L", 0.5f, 0.4f, 0.8f, 0.2f, 1.2f, 0.05f, 2f)
+  /**
+   * 0.25-0.80 umol/L of serum iodine.
+   *
+   * The band starts lower than a clinical reference range would, and that is deliberate: the thyroid
+   * is a late responder, so a player is meant to get no symptom at all until iodine has fallen a long
+   * way from normal. Everything the thyroid drives - the set point, the deficit symptom, the status
+   * readout - keys off this one number, so the whole deficiency story begins at 0.25 and the serious
+   * hypothyroidism waits for `severeLow`.
+   */
+  val IODINE: ModelMineral = new ModelMineral("IODINE", "umol/L", 0.5f, 0.25f, 0.8f, 0.2f, 1.2f, 0.05f, 2f)
 
   /** 40.0-80.0 umol/L of serum vitamin C (ascorbic acid). */
   val VITAMIN_C: ModelMineral = new ModelMineral("VITAMIN_C", "umol/L", 60.0f, 40.0f, 80.0f, 15.0f, 120.0f, 0.0f, 150.0f)
@@ -388,6 +396,15 @@ object ModelConstants {
   val FEVER_MILD: Float = 38.5f
   val FEVER_NORMAL_IMMUNE_MAX: Float = 39.5f
   val FEVER_SEVERE: Float = 40f
+
+  /**
+   * The temperature at which a fever starts to hurt, which is what the pain indicator marks.
+   *
+   * Its own constant rather than a reuse of [FEVER_NORMAL_IMMUNE_MAX], though the two are both 39.5
+   * today: that one says "past what the body does about an infection on its own" and this one says
+   * "past what a body tolerates without complaining", and either can move without the other.
+   */
+  val PAIN_THRESHOLD: Float = 39.5f
 
   val PYROGEN_CAP: Float = 6f
   val PYROGEN_METABOLISM_TICKS: Int = 24000

@@ -1,11 +1,13 @@
 package com.github.kusa233.aliment.physiology
 
 import com.github.kusa233.aliment.advancement.AlimentAdvancements
+import com.github.kusa233.aliment.registry.AlimentEffects
 import com.github.kusa233.aliment.registry.Registration
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
 import net.minecraft.core.Holder
 import net.minecraft.resources.Identifier
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.Difficulty
 import net.minecraft.world.effect.MobEffect
 import net.minecraft.world.effect.MobEffectInstance
 import net.minecraft.world.effect.MobEffects
@@ -93,6 +95,25 @@ object AlimentSymptoms {
     fun isFrozen(player: Player): Boolean = player.isCreative
 
     /**
+     * True while the player's blood glucose is left exactly where it is: peaceful difficulty.
+     *
+     * Peaceful is the one difficulty that promises nothing can kill the player, and the sugar curve
+     * is the only thing in this mod that takes hitpoints away on its own - a hypoglycaemic crash
+     * hurts you with magic damage, which no difficulty setting intercepts. Rather than soften the
+     * crash, the whole curve is switched off there: the fasting drain stops, the body's own insulin
+     * and any injected aspart stop disposing, and food stops adding.
+     *
+     * It *holds* the level rather than resetting it, for the same reason [isFrozen] freezes rather
+     * than clears - Peaceful should not be a cure the player can flick on to top themselves up, and
+     * the sugar they had is the sugar they find again on the way back out. What follows from that,
+     * and is worth knowing before it surprises someone, is that a player who enters Peaceful already
+     * crashing stays crashing and cannot eat their way out of it: both the fix and the cause are
+     * turned off together.
+     */
+    @JvmStatic
+    fun isGlucoseHeld(player: Player): Boolean = player.level().difficulty == Difficulty.PEACEFUL
+
+    /**
      * Runs the whole system for every online player, once per server tick.
      *
      * The physiology only advances while the player is online, which keeps the model predictable.
@@ -127,7 +148,7 @@ object AlimentSymptoms {
 
         val before = player.getAttachedOrCreate(AlimentAttachments.DATA)
 
-        var data = AlimentPhysiology.tick(before, ambientTemperature(player))
+        var data = AlimentPhysiology.tick(before, ambientTemperature(player), isGlucoseHeld(player))
         // Both of these roll once a second, and both are contagion: something touched the player,
         // or the player's own immune system stopped keeping its own flora in check.
         data = AlimentInfection.rollContact(player, data, runtime)
@@ -217,8 +238,12 @@ object AlimentSymptoms {
      *
      * It runs on the [EFFECT_INTERVAL_TICKS] cadence - one pass every two seconds - and re-applies
      * each effect for three intervals, so an effect that stops being warranted simply lapses instead
-     * of having to be removed. Only vanilla effects are used, which is why none of this needs
-     * anything rendered for it.
+     * of having to be removed.
+     *
+     * Every effect here is a vanilla one except the two the last block hands out: the condition
+     * indicators are the mod's own, they are the only things in the mod that have an icon drawn for
+     * them, and they are the one case that does *not* lapse on the three-interval rule - see
+     * [indicator] for why.
      */
     private fun applyOngoingEffects(player: ServerPlayer, data: AlimentData, runtime: AlimentRuntime) {
         if (runtime.shakeCooldown % EFFECT_INTERVAL_TICKS != 0) {
@@ -308,6 +333,13 @@ object AlimentSymptoms {
         if (data.temperature > 40.0f) {
             AlimentAdvancements.award(player, AlimentAdvancements.EXTREME_FEVER)
         }
+
+        // The two indicators go before the early return below, because switching them off is one of
+        // the things this has to do and `tier == 0` is exactly the case where they must come off.
+        // They are not symptoms: they are the HUD reading the same thresholds the symptoms use.
+        indicator(player, AlimentEffects.FEVER, data.feverGrade)
+        indicator(player, AlimentEffects.PAIN, if (data.hasPain) 1 else 0)
+
         val tier = data.thermalTier
         if (tier == 0) {
             return
@@ -322,6 +354,41 @@ object AlimentSymptoms {
 
         // A fever is a furnace and a shiver is a workout; both burn food.
         player.causeFoodExhaustion(AlimentModelBridge.thermalExhaustion(tier))
+    }
+
+    /**
+     * Shows, changes or clears one of the two indicator effects, from its grade: 0 means "not this",
+     * anything above is the amplifier plus one, which is the roman numeral the player reads.
+     *
+     * They are given an [MobEffectInstance.INFINITE_DURATION] and taken off by hand rather than left
+     * to run out. A duration would put a countdown on the HUD, and a countdown answers the wrong
+     * question: what ends a fever is the body cooling down, not a timer, and a player watching `0:06`
+     * tick down would be told their temperature is about to settle when it is not. So the icon lasts
+     * exactly as long as the condition does, and `visible = false` keeps the swirl off the world -
+     * this is a line on the HUD, not a cloud around the player.
+     *
+     * Re-applying every pass would be the other way to do it, and it flickers: vanilla restarts the
+     * blend-in each time an effect is added, so a two-second cadence makes the icon pulse.
+     */
+    private fun indicator(player: ServerPlayer, effect: Holder<MobEffect>, grade: Int) {
+        val current = player.getEffect(effect)
+        if (grade <= 0) {
+            if (current != null) {
+                player.removeEffect(effect)
+            }
+            return
+        }
+        if (current != null && current.amplifier == grade - 1) {
+            return
+        }
+        // Removed before the new grade goes on: vanilla's update keeps the stronger of two
+        // amplifiers, so adding a milder fever over a worse one would leave the icon reading high.
+        if (current != null) {
+            player.removeEffect(effect)
+        }
+        player.addEffect(
+            MobEffectInstance(effect, MobEffectInstance.INFINITE_DURATION, grade - 1, false, false),
+        )
     }
 
     /**

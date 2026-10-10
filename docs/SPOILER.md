@@ -191,15 +191,17 @@ test would print.
 | Magnesium | 0.85 | **0.70 – 1.00** | mmol/L |
 | Chloride | 101 | **96 – 106** | mmol/L |
 | Calcium | 2.35 | **2.10 – 2.60** | mmol/L |
-| Iodine | 0.50 | **0.40 – 0.80** | µmol/L |
+| Iodine | 0.50 | **0.25 – 0.80** | µmol/L |
 | Vitamin C | 60.0 | **40.0 – 80.0** | µmol/L |
 
 The five electrolytes find their own way home. **Iodine and vitamin C do not** - see below and §15.
 
-* **Iodine only ever leaves.** From a normal 0.50 it drains 0.15 a day and is gone in exactly
-  **3 game days**: one kelp a day is not quite enough, two is comfortable. The thyroid reads it, so
-  the set point starts moving as soon as iodine drops below 0.40 and is 0.8 °C lower by the 0.05
-  floor - which is the severe hypothyroidism behind slowness II, weakness II and fatigue.
+* **Iodine only ever leaves.** From a normal 0.50 it drains 0.09 a day and is gone in exactly
+  **5 game days**; one kelp a day is not quite enough, two is comfortable. The thyroid reads it, but the
+  reference floor is deliberately set at **0.25** - a deficit causes no symptom at all until iodine is
+  below that - and the set point is 0.8 °C lower by the 0.05 floor, which is the severe hypothyroidism
+  behind slowness II, weakness II and fatigue. A surplus clears slightly faster than the flat leak,
+  because it is cleared in proportion to how far above normal it is, so an excess never accumulates.
 * **Drinking a lot of water washes out sodium first**, then chloride; magnesium and calcium go last.
 * **A crude salted serving is +3.0 mmol/L of sodium, a refined one +3.5.** Two salted servings take
   a healthy 140 to 146–147 and the thirst that comes with it.
@@ -315,6 +317,21 @@ to.
 A hot biome plus a working thyroid can reach 38.0 °C without any illness; fever symptoms start
 strictly at **38.5 °C**.
 
+The effect bar also says which of those you are in, so the diagnostic command is no longer the only
+way to find out. Both of these are indicators and nothing else - neither effect changes anything
+about the body, and neither carries a duration.
+
+| Effect | Shown from | Levels |
+| --- | --- | --- |
+| **Fever** | ≥ 38.5 °C | I at 38.5, II at 39.5, III at 40.0 |
+| **Pain** | ≥ 39.5 °C | one level only |
+
+The three fever grades are their own scale and deliberately **not** the symptom scale: the weakness
+and the mining fatigue step up at 38.5 and again at **40.0**, so **Fever II** from 39.5 is news
+about how ill you are rather than something further being done to you. The icons are on the bar for
+exactly as long as the temperature holds them there - there is no countdown next to them, because
+what ends a fever is the body cooling down rather than a timer running out.
+
 ---
 
 ## 12. Screen Effects and Camera Tremors
@@ -388,6 +405,14 @@ not avoid the glucose cost of eating.
 
   The damage ignores armour - the brain has no fuel but glucose. Eight game days without food leaves
   a body at **0.97 mmol/L**, which is a crisis.
+* **On peaceful difficulty the blood glucose does not move at all.** All four ways into it are off at
+  once: the fasting drain, the body's own insulin, an injected dose, and food. The level is *held*
+  rather than reset, so it is not a way to top yourself up - and a body that was already crashing
+  stays crashing, because the one thing that could raise the sugar went off with the rest. It stays
+  uncomfortable rather than lethal, though: the crash asks for 0.4 HP a second and peaceful
+  regeneration gives back **1.0 HP a second** whenever health is below maximum, so the bar stays full.
+  `/aliment cure` and raising the difficulty back up both end it. `/aliment status` marks the line
+  **`[held: peaceful]`** so a number that has stopped meaning anything is not mistaken for a normal one.
 
 ### The four items
 
@@ -767,12 +792,12 @@ plant to stage 1 instead of uprooting it. Bone meal works underwater. See §1 fo
 
 | Form | Iodine | Also |
 | --- | --- | --- |
-| Raw seaweed | **+0.20 µmol/L** | food |
-| Cooked seaweed | **+0.25 µmol/L** | 3 hunger / 0.6 saturation |
+| Raw seaweed | **+0.10 µmol/L** | food |
+| Cooked seaweed | **+0.125 µmol/L** | 3 hunger / 0.6 saturation |
 | Crushed seaweed | - | grindstone, an ingredient |
-| Seaweed iodized salt | **+0.40 µmol/L** | crushed seaweed + salt powder; **+1.5 mmol/L** sodium and chloride |
+| Seaweed iodized salt | **+0.20 µmol/L** | crushed seaweed + salt powder; **+1.5 mmol/L** sodium and chloride |
 
-Dried kelp is the vanilla alternative at +0.20. See §7 for what a deficit does.
+Dried kelp is the vanilla alternative at +0.10. See §7 for what a deficit does.
 
 ---
 
@@ -794,7 +819,7 @@ vanilla one does, and all **80** of its edible foods and drinks are priced.
 | --- | --- | --- |
 | Cured meat | **sodium and chloride** | the bacon and ham cuts +0.8, a bacon sandwich or bacon and eggs +1.2, honey-glazed ham +2.0 mmol/L |
 | Vegetables and salads | **vitamin C** | a tomato +10, worth a carrot; cabbage +8, onion and pumpkin slice +6; the salads are the richest at +14 to +18 |
-| Kelp rolls | **iodine** | a roll +0.30 µmol/L, a slice exactly a third of one |
+| Kelp rolls | **iodine** | a roll +0.15 µmol/L, a slice exactly a third of one |
 | Everything edible | **blood glucose** | by what it is made of: plant food 0.4, raw meat 0.4, cooked meat 0.5, an assembled plate **0.6**, bread and sweets 0.7 |
 | Bottled milk, three sweetened drinks, nine soups | **water** | one drink's worth, as vanilla's milk bucket and mushroom stew |
 
@@ -858,9 +883,9 @@ and metabolised within one game day.
    the weakness icon instead.
 3. **Raw willow broth is an infection source and boiled broth is not.** Those 60 seconds are worth
    waiting for.
-4. **Iodine is gone in three days and the body will not hold on to it.** One kelp a day is not
+4. **Iodine is gone in five days and the body will not hold on to it.** One kelp a day is not
    enough, two is comfortable; without it you walk into severe hypothyroidism and a lower temperature
-   set point. The surplus does not store either - it clears in the same three days.
+   set point. The surplus does not store either - it clears faster than the flat leak, so it never piles up.
 5. **Salicin is an anti-inflammatory and an antipyretic at once**, because it blocks prostaglandins,
    which is what fever runs on.
 6. **Overdosing is more dangerous than the infection.** Below 12 inflammation you are
@@ -872,7 +897,7 @@ and metabolised within one game day.
 9. **Every tremor has a cause** and every cause has an icon in the effect bar.
 10. **Blood glucose only ever falls on its own.** Nothing synthesises it, so an unfed player drifts
     from 5.0 to 3.5 in two game days and into a crisis by the eighth. Bread is worth 0.7 and
-    everything else 0.4–0.5.
+    everything else 0.4–0.5. On peaceful it does not move at all, in either direction - see §13.
 11. **An insulin injection is not a treatment.** It lowers blood glucose and nothing switches it off;
     two doses inside the cooldown are a crisis, and eating is the only way out.
 12. **Grapefruit changes how long your other medicine lasts.** Nine slices make a dose of coptis last

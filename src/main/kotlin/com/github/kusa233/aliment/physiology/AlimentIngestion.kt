@@ -63,15 +63,15 @@ object AlimentIngestion {
     /**
      * Iodine from kelp, in umol/L. Dried kelp is the concentrated form.
      *
-     * The body loses 0.15 umol/L a day on its own - the whole store is gone in three days - so a
+     * The body loses 0.09 umol/L a day on its own - the whole store is gone in five days - so a
      * regular diet of kelp is what keeps a player out of hypothyroidism: one a day is not quite
      * enough, two a day is comfortable, and dried kelp is worth two wet ones.
      */
-    private const val KELP_IODINE = 0.10f
-    private const val DRIED_KELP_IODINE = 0.20f
-    private const val SEAWEED_IODINE = 0.20f
-    private const val COOKED_SEAWEED_IODINE = 0.25f
-    private const val IODIZED_SALT_IODINE = 0.40f
+    private const val KELP_IODINE = 0.05f
+    private const val DRIED_KELP_IODINE = 0.10f
+    private const val SEAWEED_IODINE = 0.10f
+    private const val COOKED_SEAWEED_IODINE = 0.125f
+    private const val IODIZED_SALT_IODINE = 0.20f
     private const val IODIZED_SALT_SODIUM = 1.5f
     private const val IODIZED_SALT_CHLORIDE = 1.5f
 
@@ -365,10 +365,12 @@ object AlimentIngestion {
         }
 
         // Everything edible is carbohydrate or becomes it, and the body stores none of it: this is
-        // what makes a meal a glucose dose rather than just a hunger bar.
+        // what makes a meal a glucose dose rather than just a hunger bar. On peaceful the dose is
+        // declined by the model rather than here, so that every way into the blood sugar is shut off
+        // in one place and none of them is a special case at a call site.
         val glucose = glucoseFor(stack.item)
         if (glucose > 0f) {
-            data = AlimentPhysiology.addGlucose(data, glucose)
+            data = AlimentPhysiology.addGlucose(data, glucose, AlimentSymptoms.isGlucoseHeld(player))
         }
 
         if (data !== before) {

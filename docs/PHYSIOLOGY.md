@@ -64,7 +64,7 @@ Each mineral has an established **clinical reference range**, with **bilateral t
 | Magnesium `magnesium` | 0.85 | **0.70 – 1.00** | 0.50 / 1.50 | 0.20 / 3.0 | mmol/L |
 | Chloride `chloride` | 101 | **96 – 106** | 90 / 115 | 70 / 140 | mmol/L |
 | Calcium `calcium` | 2.35 | **2.10 – 2.60** | 1.80 / 3.00 | 1.00 / 4.0 | mmol/L |
-| **Iodine `iodine`** | 0.50 | **0.40 – 0.80** | 0.20 / 1.20 | 0.05 / 2.0 | **µmol/L** |
+| **Iodine `iodine`** | 0.50 | **0.25 – 0.80** | 0.20 / 1.20 | 0.05 / 2.0 | **µmol/L** |
 | **Vitamin C `vitamin_c`** | 60.0 | **40.0 – 80.0** | 40.0 / 80.0 | 15.0 / 120.0 | **µmol/L** |
 
 **Electrolytes are regulated homeostatically back to baseline**: the endogenous restoration rate is `(normal - current) * 0.00005` (time constant 20,000 ticks, under one game day). **Trace elements (iodine and vitamin C) are exceptions**: they lack endogenous synthesis and must be maintained through dietary intake.
@@ -87,20 +87,25 @@ The human body cannot synthesize iodine and **does not retain it permanently**:
 
 | Food Item | Iodine Contribution | Nutritional Value |
 | --- | --- | --- |
-| Kelp `minecraft:kelp` | **+0.10 µmol/L** | Nutrition: 1 / Saturation: 0.6 |
-| Dried Kelp `minecraft:dried_kelp` | **+0.20 µmol/L** | Nutrition: 1 / Saturation: 0.6 |
-| Seaweed `aliment:seaweed` | **+0.20 µmol/L** | Nutrition: 1 / Saturation: 0.2; renewable in seabed farms |
-| Cooked Seaweed `aliment:cooked_seaweed` | **+0.25 µmol/L** | Nutrition: 3 / Saturation: 0.6; high-density iodine source |
-| Seaweed Iodized Salt `aliment:seaweed_iodized_salt` | **+0.40 µmol/L** | Adds **+1.5 mmol/L Na and Cl**; balances electrolytes and prevents hypothyroidism |
-| Kelp Roll `farmersdelight:kelp_roll` | **+0.30 µmol/L** | *Farmer's Delight.* Three dried kelp wrapped around a bowl of rice; the rice is most of it, so it is charged as a dish containing kelp and not as three dried kelp |
-| Kelp Roll Slice `farmersdelight:kelp_roll_slice` | **+0.10 µmol/L** | *Farmer's Delight.* A third of a roll, exactly as the cutting board divides it |
+| Kelp `minecraft:kelp` | **+0.05 µmol/L** | Nutrition: 1 / Saturation: 0.6 |
+| Dried Kelp `minecraft:dried_kelp` | **+0.10 µmol/L** | Nutrition: 1 / Saturation: 0.6 |
+| Seaweed `aliment:seaweed` | **+0.10 µmol/L** | Nutrition: 1 / Saturation: 0.2; renewable in seabed farms |
+| Cooked Seaweed `aliment:cooked_seaweed` | **+0.125 µmol/L** | Nutrition: 3 / Saturation: 0.6; high-density iodine source |
+| Seaweed Iodized Salt `aliment:seaweed_iodized_salt` | **+0.20 µmol/L** | Adds **+1.5 mmol/L Na and Cl**; balances electrolytes and prevents hypothyroidism |
+| Kelp Roll `farmersdelight:kelp_roll` | **+0.15 µmol/L** | *Farmer's Delight.* Three dried kelp wrapped around a bowl of rice; the rice is most of it, so it is charged as a dish containing kelp and not as three dried kelp |
+| Kelp Roll Slice `farmersdelight:kelp_roll_slice` | **+0.05 µmol/L** | *Farmer's Delight.* A third of a roll, exactly as the cutting board divides it |
 
-Without dietary iodine, plasma concentrations steadily drain at a fixed rate of 0.15 µmol/L per day, **depleting completely to the floor (0.05 µmol/L) in exactly 3 in-game days**:
-* **Daily Maintenance**: 0.15 µmol/L is lost daily via basal metabolism (accelerated during fever and sweating).
+Without dietary iodine, plasma concentrations steadily drain at a fixed rate of 0.09 µmol/L per day, **depleting completely to the floor (0.05 µmol/L) in exactly 5 in-game days**:
+* **Daily Maintenance**: 0.09 µmol/L is lost daily via basal metabolism (accelerated during fever and sweating).
 * **Dietary Strategy**:
-  * **Daily Upkeep**: 1 dried kelp (+0.20) or raw seaweed (+0.20) comfortably covers a day's basal decay.
-  * **Acute Treatment**: 2 cooked seaweeds (+0.25 each) replenish a severely depleted thyroid reserve back toward the upper safe limit.
-  * **Expedition Supply**: Seaweed iodized salt (+0.40) provides substantial iodine while concurrently replenishing sodium and chloride (+1.5 mmol/L each) to counteract dilutional hyponatremia from drinking water.
+  * **Daily Upkeep**: 2 dried kelp (+0.10 each) or 2 raw seaweed (+0.10 each) covers a day's basal decay; one alone is not quite enough.
+  * **Acute Treatment**: cooked seaweed (+0.125) replenishes a depleted thyroid reserve, and four of them carry a severely depleted store most of the way back.
+  * **Expedition Supply**: Seaweed iodized salt (+0.20) provides a large iodine dose while concurrently replenishing sodium and chloride (+1.5 mmol/L each) to counteract dilutional hyponatremia from drinking water.
+
+The reference band deliberately **starts lower than a clinical reference range would**: symptoms begin at
+**0.25**, not at 0.40. The thyroid is a late responder, so a player is meant to feel nothing at all until
+iodine has fallen a long way from normal, and the serious hypothyroidism still waits for `severeLow`
+(0.20).
 
 ### Vitamin C (Ascorbic Acid)
 Vitamin C cannot be synthesized endogenously by humans. Serum reference values are **40.0 – 80.0 µmol/L** (baseline healthy homeostasis is **60.0 µmol/L**).
@@ -175,8 +180,18 @@ Above 100, kidneys accelerate excretion (up to 2x normal rate), concurrently **d
 | Mild / Severe Hypothermia | ≤ **36.0 °C** / ≤ **35.0 °C** |
 | Model Limits | 30.0 °C – 42.0 °C |
 | Thermal Integration Rate | 0.0004 / tick (approx. 2500 ticks to traverse 63% of the delta; ~2 minutes) |
+| Pain Indicator Threshold `PAIN_THRESHOLD` | **39.5 °C** |
 
 > Fever threshold begins at **38.5 °C** rather than 38.0 °C. 38.0 °C can be reached naturally in warm biomes with slight thyroid activation without requiring antipyretics. During standard immune response (loads 20–55), fever is capped at 39.5 °C; only when loads exceed 55 and trigger cytokine storms does temperature surge past 40.0 °C.
+
+`feverGrade(temperature)` is a second, three-step scale over the same thresholds — **1** from 38.5, **2**
+from 39.5, **3** from 40.0 — and exists only to be shown to the player as `aliment:fever`. It is
+deliberately not `thermalTier`, which has two fever steps; `hasPain(temperature)` is a third,
+single-step ladder at `PAIN_THRESHOLD`, shown as `aliment:pain`. Neither returns anything the model
+consumes, and neither changes a symptom: at 39.5 °C the weakness is exactly what it is at 38.6 °C, and
+that is asserted in the self test. `PAIN_THRESHOLD` is a separate constant from
+`FEVER_NORMAL_IMMUNE_MAX` although the two are both 39.5 today, so that "past what the body does about
+an infection on its own" and "past what a body tolerates without complaining" can move apart.
 
 Core temperature is governed by four contributing factors: **prostaglandins** from immune stimulation, injected **pyrogens**, **thyroid** offsets from iodine, and **ambient environment**.
 
@@ -544,13 +559,33 @@ val flushFraction = clamp((water - 100.0f) / 100.0f, 0.0f, 1.0f) * 0.000009f
 val sweatFraction = if (temperature > 38.25f) Math.max(temperature - 37.0f, 0.0f) * 0.000002f else 0.0f
 
 // Excretion multiplier: (Na: 1.0, Cl: 1.0, K: 0.7, Mg: 0.4, Ca: 0.4)
-val totalLossRate = (flushFraction + sweatFraction) * excretionMultiplier * normalConcentration
+// Scaled by the concentration itself: the filtered load a kidney handles is
+// what is in the blood, so a high electrolyte leaves faster than a low one.
+val concentration = currentConcentration / normalConcentration
+val totalLossRate = (flushFraction + sweatFraction) * excretionMultiplier * concentration * normalConcentration
 val restorationRate = 0.00005f * (normalConcentration - currentConcentration)
 
 electrolyte += restorationRate - totalLossRate
 ```
 
 Sodium and chloride wash out fastest; over-drinking fresh water quickly triggers dilutional hyponatremia.
+
+Because the loss scales with the value, the flat part of the curve is unchanged — at normal the factor is
+exactly 1 — while a body that is *already* high on an electrolyte dumps it faster than a healthy one
+does. That is what makes the rate "each electrolyte's own", rather than one shared leak: the same
+`flushFraction` empties a full store quicker than a nearly empty one, and the order the minerals leave in
+(Cl and Na first, Mg and Ca last) is preserved because the per-mineral multiplier is unchanged.
+
+Iodine is the one mineral with an extra term of its own, since it has no homeostat to pull it back:
+
+```scala
+val excess = Math.max(iodine - 0.50f, 0f)
+val iodineLoss = (drainFraction + flush * EXCRETION_IODINE) * 0.50f + excess * 0.000002f
+```
+
+The leak is flat **while the value is at or below normal**, so "five days from 0.50 to the 0.05 floor" stays
+an exact figure; only a **surplus** is cleared any faster, which makes an excess drain away sooner without
+bending the depletion curve the tests and this document both state.
 
 ### Thermal Balance
 
@@ -741,6 +776,47 @@ The one drug in the mod that makes a body worse on purpose. It is deliberately a
 from the body's own `insulin`: the pancreas switches its own secretion off as glucose falls, and
 injected aspart is not switched off by anything. One dose from a normal body is survivable; two
 stacked inside the cooldown are a crisis, and eating is the only way out.
+
+### Peaceful Difficulty Holds It
+
+On **peaceful** difficulty the blood glucose does not move at all. That is a stronger statement than
+it sounds: there are exactly **four** ways into it, and all four are switched off together.
+
+| Way in | Direction | Off while held |
+| --- | --- | --- |
+| The basal fasting drain | down | yes |
+| The body's own insulin clearing a load | down | yes |
+| Injected insulin aspart | down | yes |
+| Food (`addGlucose`) | **up** | yes |
+
+```scala
+// The whole of the switch, in the one place that decides whether the sugar moves. Nothing is
+// computed and then discarded, so there is no arithmetic quietly running anyway.
+val glucose =
+  if (glucoseHeld) state.glucose else stepGlucose(state, insulin, drugs.insulinAspart)
+```
+
+`addGlucose` takes the same flag, and it has to: the tick only ever takes glucose *away*, so a hold
+that stopped at the tick would leave eating as the one thing still able to move a sugar it had pinned.
+
+It is a **hold, not a reset**, which is the same choice creative mode makes. Peaceful is not a way to
+top yourself up - the level the player had is the level they find again when the difficulty goes back
+up. The insulin index is deliberately *not* held: it is a response to the glucose rather than a thing
+that moves it, so it still relaxes towards whatever the held level asks for, and the self test pins
+that a held tick differs from a free one in exactly one field.
+
+> **A held crash is uncomfortable rather than lethal, and that is vanilla's doing.** A player who
+> enters peaceful *already* hypoglycaemic stays hypoglycaemic, and stays taking the magic damage that
+> comes with it: `player.damageSources().magic()` carries no causing entity, and `minecraft:magic` is
+> declared `"scaling": "when_caused_by_living_non_player"`, so `Player.hurtServer` does **not** zero
+> it on peaceful the way it zeroes a mob's hit. What saves the player is
+> `ServerPlayer.tickRegeneration`: on peaceful, with the default `naturalRegeneration` rule, it heals
+> **1.0 HP a second whenever health is below maximum**. The crash asks for 0.8 damage per two-second
+> pass - **0.4 HP/s** - so the bar sits at full and never drains. The three symptoms that are not
+> damage (mining fatigue, weakness, and the diagnostic tag on `/aliment status`) stay exactly as they
+> are, and `/aliment cure` or raising the difficulty back up both end it. With
+> `naturalRegeneration` disabled, the arithmetic reverses and a held crash does drain health, because
+> the regeneration it was leaning on is gone.
 
 ---
 

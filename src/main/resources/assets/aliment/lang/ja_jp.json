@@ -64,6 +64,8 @@
     "message.aliment.glucose.reading":  "現在の血糖値：%s mmol/L",
     "message.aliment.glucose.no_strip":  "もう一方の手に血液付着試験紙が必要です",
     "message.aliment.glucose.no_blood":  "指が出血していません：先にマイクロニードルを使ってください",
+    "effect.aliment.fever":  "発熱",
+    "effect.aliment.pain":  "疼痛",
     "item.aliment.willow_bark":  "ヤナギの樹皮",
     "item.aliment.willow_bark_pieces":  "ヤナギの樹皮の破片",
     "item.aliment.raw_willow_bark_soup_bottle":  "生のヤナギ樹皮スープ入り瓶",
