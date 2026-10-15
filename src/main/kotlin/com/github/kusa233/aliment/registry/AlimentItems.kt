@@ -441,6 +441,10 @@ object AlimentItems {
      * Two hunger and a little saturation, and always edible, because the reason to hold a bunch is
      * the tank rather than the meal - a player who wants wine should not have to be hungry to eat
      * the fruit that proves the vine works.
+     *
+     * It carries a small amount of its own vitamin C, so a vineyard is a real answer to scurvy;
+     * the figure lives in `AlimentIngestion` with the rest of the food table, and [GRAPE_JUICE]
+     * takes the same one so a glass is worth exactly what the grapes in it were.
      */
     val GRAPE: Item = Registration.registerItem(
         "grape",

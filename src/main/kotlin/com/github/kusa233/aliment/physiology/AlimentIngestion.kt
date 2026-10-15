@@ -90,6 +90,26 @@ object AlimentIngestion {
     private const val SEAWEED_VITAMIN_C = 5.0f
     private const val COOKED_SEAWEED_VITAMIN_C = 3.0f
 
+    /**
+     * Vitamin C one bunch of grapes delivers.
+     *
+     * A grape's own figure, and a small one: it is a soft fruit eaten by the handful, not a root
+     * vegetable, so it lands below the berries' 6 rather than beside the carrot's 10. With the plant
+     * supplement it is worth 9 altogether - enough that a vineyard is a real answer to scurvy, which
+     * it was never allowed to be while the mod credited grapes with nothing at all.
+     */
+    private const val GRAPE_VITAMIN_C = 4.0f
+
+    /**
+     * Vitamin C one glass of grape juice delivers: the grape's own 4, pressed into a bottle.
+     *
+     * The fruit's figure and not a new one, on the same rule the grapefruit's two forms follow, so
+     * pressing a grape neither invents ascorbate nor throws any away. The glass collects the plant
+     * supplement on top like every other plant food, so it lands on 9 - exactly what the grapes that
+     * went into it were worth.
+     */
+    private const val GRAPE_JUICE_VITAMIN_C = 4.0f
+
     /** What one mandrake fruit carries, in dose units; the seeds are the same plant, watered down. */
     private const val FRUIT_SCOPOLAMINE = 1.0f
     private const val FRUIT_ATROPINE = 0.1f
@@ -371,6 +391,8 @@ object AlimentIngestion {
             Items.BEETROOT_SOUP -> data = AlimentPhysiology.vitaminC(data, BEETROOT_SOUP_VITAMIN_C)
             AlimentItems.GRAPEFRUIT_SLICE -> data = AlimentPhysiology.vitaminC(data, GRAPEFRUIT_SLICE_VITAMIN_C)
             AlimentItems.GRAPEFRUIT_JUICE -> data = AlimentPhysiology.vitaminC(data, GRAPEFRUIT_JUICE_VITAMIN_C)
+            AlimentItems.GRAPE -> data = AlimentPhysiology.vitaminC(data, GRAPE_VITAMIN_C)
+            AlimentItems.GRAPE_JUICE -> data = AlimentPhysiology.vitaminC(data, GRAPE_JUICE_VITAMIN_C)
             AlimentItems.MANDRAKE_FRUIT -> data = AlimentPhysiology.vitaminC(data, MANDRAKE_FRUIT_VITAMIN_C)
             AlimentItems.SEAWEED -> data = AlimentPhysiology.vitaminC(data, SEAWEED_VITAMIN_C)
             AlimentItems.COOKED_SEAWEED -> data = AlimentPhysiology.vitaminC(data, COOKED_SEAWEED_VITAMIN_C)

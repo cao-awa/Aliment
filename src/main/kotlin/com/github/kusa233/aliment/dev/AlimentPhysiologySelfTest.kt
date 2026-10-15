@@ -3561,6 +3561,33 @@ class AlimentPhysiologySelfTest : ModInitializer {
             abs(afterJuice - afterGrapefruit) < 0.001f,
         )
 
+        // The grape, which used to carry no figure of its own at all: before this it was worth the
+        // bare plant supplement and nothing more. A bunch is a soft fruit eaten by the handful, so it
+        // lands under the berries rather than beside the carrot - but it is a real figure now, and the
+        // assertion is written against the total rather than as `own + supplement`, which any value of
+        // the constant would satisfy, including the 0 this change exists to remove.
+        player.setAttached(AlimentAttachments.DATA, vitCDeficient)
+        ItemStack(AlimentItems.GRAPE, 1).finishUsingItem(level, player)
+        val afterGrape = player.getAttachedOrCreate(AlimentAttachments.DATA).traceElements.vitaminC
+        logger.info("PHYS vitamin C from a grape: {}", afterGrape)
+        check(
+            "a grape adds its own 4 plus the plant supplement, so 9 altogether",
+            abs(afterGrape - (30f + 9f)) < 0.001f,
+        )
+        check("which is more than the bare supplement a potato is worth", afterGrape > afterPotato)
+        check("and less than a carrot, because a grape is a small soft fruit", afterGrape < afterCarrot)
+
+        // The same grape, pressed into a bottle: the sugar brings glucose but no vitamin C of its own,
+        // so a glass is worth exactly what the grapes in it were worth.
+        player.setAttached(AlimentAttachments.DATA, vitCDeficient)
+        ItemStack(AlimentItems.GRAPE_JUICE, 1).finishUsingItem(level, player)
+        val afterGrapeJuice = player.getAttachedOrCreate(AlimentAttachments.DATA).traceElements.vitaminC
+        logger.info("PHYS vitamin C from grape juice: {}", afterGrapeJuice)
+        check(
+            "a glass of grape juice adds as much vitamin C as the grapes it is pressed from",
+            abs(afterGrapeJuice - afterGrape) < 0.001f,
+        )
+
         // Water from plant food, eaten for real. The apple is the positive case; the beef is the
         // negative control that matters, because it is worth *exactly the same glucose* as the apple
         // and so is the one a classifier built on the glucose figure would get wrong.
@@ -3621,14 +3648,19 @@ class AlimentPhysiologySelfTest : ModInitializer {
             AlimentIngestion.isDrink(AlimentItems.GRAPE_JUICE) &&
                 abs(AlimentIngestion.glucoseFor(AlimentItems.GRAPE_JUICE) - AlimentData.GLUCOSE_PER_SWEET_DRINK) < 0.0001f,
         )
-        // Grape juice has no vitamin C figure of its own, so what it carries is the plant supplement
-        // and nothing else - it is a plant food because it is pressed from one. That it is *also* a
-        // drink is what keeps it off the water rule above.
+        // Grape juice is a plant food because it is pressed from one, so it carries the supplement,
+        // and it carries the grape's own figure besides - the same 4 the fruit itself is worth, so
+        // pressing the grape neither invents ascorbate nor throws any away. That it is *also* a drink
+        // is what keeps it off the water rule above.
         check(
-            "and it is a plant food, so it carries the supplement",
+            "and it is a plant food, so it carries the grape's own 4 plus the supplement",
             AlimentIngestion.isPlantFood(AlimentItems.GRAPE_JUICE) &&
                 abs(grapesJuiced.traceElements.vitaminC -
-                    (AlimentData.HEALTHY.traceElements.vitaminC + AlimentData.VITAMIN_C_PER_PLANT_FOOD)) < 0.001f,
+                    (AlimentData.HEALTHY.traceElements.vitaminC + 4f + AlimentData.VITAMIN_C_PER_PLANT_FOOD)) < 0.001f,
+        )
+        check(
+            "which is 9 altogether, not the bare supplement",
+            abs(grapesJuiced.traceElements.vitaminC - (AlimentData.HEALTHY.traceElements.vitaminC + 9f)) < 0.001f,
         )
 
         // The mandrake, eaten: the fruit and the seeds both carry the two alkaloids.

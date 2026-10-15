@@ -608,6 +608,8 @@ vegetables a complete one rather than a marginal one.
 | Mandrake fruit | +10.0 | +15.0 |
 | Grapefruit slice | +10.0 | +15.0 |
 | Grapefruit juice | +10.0 | +15.0 |
+| Grapes | +4.0 | +9.0 |
+| Grape juice | +4.0 | +9.0 |
 | Seaweed | +5.0 | +10.0 |
 | Cooked seaweed | +3.0 | +8.0 |
 | Potato, and anything else green with no figure of its own | — | +5.0 |
@@ -719,10 +721,11 @@ free to refill.
 table, or grapes and sugar in a Farmer's Delight **cooking pot** drawn into a **glass bottle**. It is
 the unfermented half of the tank's work, and the reason to make one is that it feeds a body with
 **no ethanol at all** - it is what a player drinks when they want the grape rather than the drink. It
-carries a full glass of water, the sugar's **0.7** glucose, and vitamin C only from the plant
-supplement's +5 - it counts as plant food because it is pressed from one, but the mod does not credit a
-grape with a figure of its own. Zero hunger, and always edible: a glass of juice is not a meal, and
-a full stomach should not stand between a player and a drink they made on purpose.
+carries a full glass of water, the sugar's **0.7** glucose, and the grape's own **4** vitamin C plus
+the plant supplement's **+5**, for **9** altogether - it counts as plant food because it is pressed
+from one, and it is worth exactly what the grapes in it were worth, so pressing a grape neither
+invents ascorbate nor throws any away. Zero hunger, and always edible: a glass of juice is not a meal,
+and a full stomach should not stand between a player and a drink they made on purpose.
 
 **Where the grapes come from.** A wild vine in the plains and temperate forests - see §1 - or seeds
 from the fruit: one grape in a crafting grid gives two seeds, sown into dirt, grass, farmland or

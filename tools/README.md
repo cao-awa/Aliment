@@ -212,9 +212,9 @@ because tag membership is what a wood set actually is: each of the four log-shap
 to be in `aliment:grapefruit_logs`, in `minecraft:logs` and axe-mineable; each shaped block in the one
 vanilla tag that makes it craftable and mineable; a willow log is asserted *not* to be in the
 grapefruit tag; and both boats are checked to be `BoatItem`s whose entity types are registered and
-distinct from the willow's. 887 checks, all passing.
+distinct from the willow's. 893 checks, all passing.
 
-The Farmer's Delight suite is the other one, and it is **291** checks rather than 887 because it asks
+The Farmer's Delight suite is the other one, and it is **291** checks rather than 893 because it asks
 the registry rather than the body wherever it can. It requires every one of the mod's 80 edible items
 to carry some Aliment value, then really eats several of them through the same `finishUsingItem` path
 the mixin hooks - see the section below.

@@ -144,6 +144,9 @@ Vitamin C cannot be synthesized endogenously by humans. Serum reference values a
 | Seaweed `aliment:seaweed` | **+5.0 µmol/L** |
 | Cooked Seaweed `aliment:cooked_seaweed` | **+3.0 µmol/L** |
 | Grapefruit Slice `aliment:grapefruit_slice` | **+10.0 µmol/L** - a plant food, and a citrus besides, so the same as a carrot |
+| Grapefruit Juice `aliment:grapefruit_juice` | **+10.0 µmol/L** - the slice pressed into a bottle, so exactly what the slice was worth |
+| Grapes `aliment:grape` | **+4.0 µmol/L** - a soft fruit eaten by the handful, so it sits below the berries rather than beside the carrot |
+| Grape Juice `aliment:grape_juice` | **+4.0 µmol/L** - the grape's own figure, because a glass is pressed from grapes and neither invents ascorbate nor throws any away |
 | Potato `minecraft:potato` and any other plant with no figure of its own | **+0**, earning only the +5.0 supplement above |
 
 Those are the figures each item **carries of its own**; what a body actually receives is that plus the

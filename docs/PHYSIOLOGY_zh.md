@@ -154,6 +154,9 @@ val restingInflammation = 0.15 * 25.0 + 0.20 * 30.0 + 0.15 * 30.0 + 0.35 * 20.0 
 | 海藻 `aliment:seaweed` | **+5.0 µmol/L** |
 | 熟海藻 `aliment:cooked_seaweed` | **+3.0 µmol/L** |
 | 葡萄柚片 `aliment:grapefruit_slice` | **+10.0 µmol/L**——植物性食物，又是柑橘，所以和胡萝卜一样 |
+| 葡萄柚汁 `aliment:grapefruit_juice` | **+10.0 µmol/L**——把果片压进瓶里，所以正好等于那片果实的价值 |
+| 葡萄 `aliment:grape` | **+4.0 µmol/L**——一把一把吃的软果，所以排在浆果之下而不是胡萝卜旁边 |
+| 葡萄汁 `aliment:grape_juice` | **+4.0 µmol/L**——葡萄自己的数值，因为一杯是由葡萄压出来的，既不会凭空造出抗坏血酸、也不会把它丢掉 |
 | 土豆 `minecraft:potato` 等没有自身数值的植物 | **+0**，只拿上面那份 +5.0 的补充 |
 
 上表是每件食物**自己记录**的数值；实际进账要再加植物补充的 **+5.0**，所以苹果是 17、胡萝卜是 15、
