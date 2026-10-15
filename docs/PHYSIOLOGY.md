@@ -8,6 +8,8 @@ The design objective is to make infection an evolving, organic biological proces
 
 Target Platform: **Minecraft 26.3** (Fabric, Scala 3.9 / Kotlin 2.4 / Java 25).
 
+This document describes what each quantity means clinically. For the algebra itself - every equation, every constant, and the order the steps run in - see [MATH.md](MATH.md) · [中文](MATH_zh.md).
+
 ---
 
 ## Data Model

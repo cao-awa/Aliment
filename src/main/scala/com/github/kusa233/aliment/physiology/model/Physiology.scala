@@ -82,6 +82,15 @@ object Physiology {
    */
   private final val DRUG_SUPPRESS_CLEARANCE_RATE = ModelConstants.MAX_PATHOGEN / (1.5f * 24000f)
 
+  /**
+   * How wide the competence bell is on the two sides of its plateau.
+   *
+   * Asymmetric on purpose, and the asymmetry is the whole point of the curve. Below the plateau the
+   * immune system is *under*-reacting, which is a sharper failure, so the fall is tighter; above it
+   * it is over-reacting and dysregulated, which degrades more slowly, so the fall is wider. Both
+   * sides are half-Gaussians meeting a flat 1.0 across the safe band.
+   */
+  private final val COMPETENCE_SIGMA_LOW = 10f
   private final val COMPETENCE_SIGMA = 15f
 
   // ------------------------------------------------------------------ water
@@ -211,7 +220,7 @@ object Physiology {
       if (inflammation < 20f) inflammation - 20f
       else if (inflammation <= 40f) 0f
       else inflammation - 40f
-    val sigma = if (inflammation < 20f) 10f else 15f
+    val sigma = if (inflammation < 20f) COMPETENCE_SIGMA_LOW else COMPETENCE_SIGMA
     val bell = Math.exp(-(delta * delta) / (2f * sigma * sigma)).toFloat
     val lowEnd = clamp(inflammation / ModelConstants.IMMUNOSUPPRESSION_THRESHOLD, 0f, 1f)
     bell * lowEnd
@@ -423,7 +432,7 @@ object Physiology {
    * Magic damage a severe infection does in one two-second pass, and 0 while it is not severe.
    *
    * One point at the severe-load threshold and half a point more for every 20 points past it: a load
-   * of 60 costs half a heart per ten seconds, a load of 100 a whole heart. Magic, so armour is no
+   * of 60 costs half a heart every two seconds, a load of 100 a whole heart. Magic, so armour is no
    * help - this is the pathogen, not a blow.
    */
   def sepsisDamage(load: Float): Float =
@@ -927,20 +936,6 @@ object Physiology {
       } else {
         clamp(load + baseGrowth - immuneClearance, 0f, ModelConstants.MAX_PATHOGEN)
       }
-    }
-  }
-
-  private def stepPathogen(load: Float, competence: Float, immuneActive: Boolean): Float = {
-    if (load <= 0f) {
-      0f
-    } else {
-      val growth = GROWTH_RATE * load * (1f - load / ModelConstants.MAX_PATHOGEN)
-      val clearance = if (immuneActive || load > ModelConstants.IMMUNITY_ACTIVATION_LOAD) {
-        growth * competence + CLEARANCE_BASE_RATE * competence
-      } else {
-        0f
-      }
-      clamp(load + growth - clearance, 0f, ModelConstants.MAX_PATHOGEN)
     }
   }
 

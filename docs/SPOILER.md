@@ -9,6 +9,7 @@ commands that print the numbers. If you would rather work out for yourself why s
 at first and then ruins you, or why raw willow broth makes you ill, stop reading here.
 
 - The mathematical model: [`PHYSIOLOGY.md`](PHYSIOLOGY.md) · [中文](PHYSIOLOGY_zh.md)
+- The equations and constants behind it: [`MATH.md`](MATH.md) · [中文](MATH_zh.md)
 - Architecture: [`TECHNICAL.md`](TECHNICAL.md) · [中文](TECHNICAL_zh.md)
 - Asset generators and the dev self tests: [`tools/README.md`](../tools/README.md)
 

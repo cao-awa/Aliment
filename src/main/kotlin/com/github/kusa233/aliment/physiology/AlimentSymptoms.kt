@@ -475,7 +475,8 @@ object AlimentSymptoms {
      * The probability is the model's, in Scala, reached through `AlimentModelBridge`; this only
      * hands it the body. Every term there has to come from something the player can notice, which is
      * why a fever below 38.5 and over-hydration behind a full thirst bar do not count, and why the
-     * immune system's own contribution only starts at an inflammation of 40.
+     * immune system's own contribution is reserved for the cytokine storm - it switches on in one
+     * step at an inflammation of 75 and is worth nothing below it.
      */
     fun shakeChance(data: AlimentData): Float = AlimentModelBridge.shakeChance(data)
 

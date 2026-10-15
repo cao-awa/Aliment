@@ -10,6 +10,7 @@
 
 相关文档：
 - 数学与生理模型：[`PHYSIOLOGY.md`](PHYSIOLOGY.md) · [中文](PHYSIOLOGY_zh.md)
+- 它背后的公式与常数：[`MATH.md`](MATH.md) · [中文](MATH_zh.md)
 - 技术架构：[`TECHNICAL.md`](TECHNICAL.md) · [中文](TECHNICAL_zh.md)
 - 资源生成与开发自检：[`tools/README.md`](../tools/README.md)
 
