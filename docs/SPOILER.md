@@ -114,13 +114,13 @@ willow bark pieces ──right-click a water cauldron──> raw broth cauldron
 ## 4. Salt
 
 ```
-rock salt ore (y=20–90 underground, stone pickaxe, drops itself)
-   └─grindstone─> crude salt ×9 ──grindstone──> crude salt powder
-                                                   └─right-click a water cauldron─> brine cauldron
-                                                                                       │ campfire below
-                                                                                       │ one stage per 20 s
-                                                                                       ▼ boiled dry
-                                                                                   salt powder ×1
+rock salt ore (y=20–90 underground, stone pickaxe, drops crushed rock salt)
+   └─grindstone─> crushed rock salt ×1 ──grindstone──> crude salt ×9 ──grindstone──> crude salt powder
+                                                                                         └─right-click a water cauldron─> brine cauldron
+                                                                                                                             │ campfire below
+                                                                                                                             │ one stage per 20 s
+                                                                                                                             ▼ boiled dry
+                                                                                                                        salt powder ×1
 ```
 
 * **Stirring rod** (two sticks, vertical) right-clicks a brine cauldron to skip it forward one
@@ -144,7 +144,8 @@ rock salt ore (y=20–90 underground, stone pickaxe, drops itself)
 | In | Out |
 | --- | --- |
 | Willow bark ×1 | Willow bark pieces ×2 |
-| Rock salt ore ×1 | Crude salt ×9 |
+| Rock salt ore ×1 | Crushed rock salt ×1 |
+| Crushed rock salt ×1 | Crude salt ×9 |
 | Crude salt ×1 | Crude salt powder ×1 |
 | Ephedra ×1 | Crushed ephedra ×1 |
 | Coptis ×1 | Crushed coptis ×1 |
@@ -162,9 +163,13 @@ without opening the GUI.
 
 * A **ten-pip thirst bar** sits above the health bar; each pip is 10 water.
 * The healthy band is **30 – 100**, the ceiling is 200, and a resting body sits at 80.
-* **+15 water per drink** - water bottles, potions, stew, milk, both broths, grapefruit juice, and the
-  salted versions. Grapefruit slices are the exception, at **+5**: a slice is eaten rather than drunk,
-  so it does not get a drink's worth.
+* **+15 water per drink** - water bottles, potions, stew, milk, both broths, grapefruit juice, grape
+  juice, and the salted versions. Grapefruit slices are the exception, at **+5**: a slice is eaten
+  rather than drunk, so it does not get a drink's worth.
+* **Plant food carries another +0.4 water** - fruit, vegetables, kelp, seaweed, mushrooms, willow
+  broth. It is nowhere near a drink (a fortieth of one), but food that is mostly water by weight
+  should not dehydrate the player eating it. Nothing that already carries water is stacked: a drink
+  has just had its glass, and the grapefruit slice keeps its own 5.
 * **Full to empty (100 → 0) takes 5 game days** at rest in a temperate place.
 * **Fever drinks it faster**: 39.0 °C empties it in 3.5 days, 40.0 °C in 2.0.
 * **Above 100 is overhydration**: weakness, slower mining, faster exhaustion and diluted
@@ -196,12 +201,13 @@ test would print.
 
 The five electrolytes find their own way home. **Iodine and vitamin C do not** - see below and §15.
 
-* **Iodine only ever leaves.** From a normal 0.50 it drains 0.09 a day and is gone in exactly
-  **5 game days**; one kelp a day is not quite enough, two is comfortable. The thyroid reads it, but the
-  reference floor is deliberately set at **0.25** - a deficit causes no symptom at all until iodine is
-  below that - and the set point is 0.8 °C lower by the 0.05 floor, which is the severe hypothyroidism
-  behind slowness II, weakness II and fatigue. A surplus clears slightly faster than the flat leak,
-  because it is cleared in proportion to how far above normal it is, so an excess never accumulates.
+* **Iodine only ever leaves, but slowly.** From a normal 0.50 it drains 0.03 a day and is gone in
+  exactly **15 game days**; one kelp a day is now comfortably more than the leak, where two a day used
+  to be needed to hold the range. The thyroid reads it, but the reference floor is deliberately set at
+  **0.25** - a deficit causes no symptom at all until iodine is below that - and the set point is
+  0.8 °C lower by the 0.05 floor, which is the severe hypothyroidism behind slowness II, weakness II
+  and fatigue. A surplus clears three times faster than it used to, because it is cleared in
+  proportion to how far above normal it is, so an excess never accumulates despite the gentler leak.
 * **Drinking a lot of water washes out sodium first**, then chloride; magnesium and calcium go last.
 * **A crude salted serving is +3.0 mmol/L of sodium, a refined one +3.5.** Two salted servings take
   a healthy 140 to 146–147 and the thirst that comes with it.
@@ -247,11 +253,12 @@ infection**, because suppressing the response below 12 lets the pathogen run.
 | --- | --- | --- | --- |
 | Raw meat (all of it), rotten flesh, poisonous potato | bacteria | **30%** | +6 |
 | Raw willow broth, including salted | bacteria | **30%** | +6 |
-| Within 2 blocks of **any living mob** | virus | **5% per second** | +5 |
+| Within 2 blocks of **any living mob** | virus | **1% per second** | +5 |
 | **Inflammation ≤ 12** | bacteria | **15% per second** | **+4 to +12**, random |
 
 * The proximity roll is against every living `Mob` - cows, wolves, villagers, bats. Standing in a herd
-  is the fastest way to catch something.
+  is still the way to catch something, but it is no longer a sentence: a passive mob pressed against
+  the player for a whole minute only infects about 45% of the time.
 * **Immunosuppression colonises you from your own flora**, with no vector at all.
 * **Sepsis: from a load of 60.0**, unblockable magic damage every two seconds:
 
@@ -346,18 +353,25 @@ and the middle of the screen stay clean.
 | Cold shiver | ≤ 36.0 °C | slower vertical shivering, blue tint |
 
 **Camera tremors** are rolled every **15 seconds** and shake for 16 ticks when they fire. Every cause
-on that table puts an icon in the effect bar, so a shake is never unexplained.
+on that table puts an icon in the effect bar, so a shake is never unexplained. The tremor itself is
+gentle - it reads as being unwell rather than making the game hard to aim through.
 
 | Cause | Chance |
 | --- | --- |
-| Symptomatic infection | 20%, doubled during a cytokine storm |
+| Symptomatic infection | 20% |
+| A cytokine storm, at an inflammation of 75 | +20%, all at once |
 | Each temperature tier away from comfortable | +15%, with a larger shake |
 | Low magnesium | +15% |
 | Severe low calcium | +20% |
 | Iodine excess (palpitations) | +10% |
 | Severe overhydration, with the nausea icon | +10% |
 
-Below 38.0 °C, and between 100 and 149 water, nothing tremors.
+Below 38.0 °C, between 100 and 149 water, and below an inflammation of 75, nothing tremors. The
+immune system's own contribution replaces what used to be a flat doubling of the infection's figure
+during a cytokine storm, so a storm shakes exactly as often as it always did. The immune term is
+gated on the storm threshold itself, which is where the storm's larger shake amplitude has always
+begun: only a storm moves the camera, and an inflammation below one does not shake it at all, however
+far above an ordinary response it has climbed.
 
 ---
 
@@ -371,30 +385,40 @@ unfed player runs out however healthy the rest of the body is.
 | --- | --- |
 | Normal, fasting | **5.0 mmol/L** |
 | Reference range | **4.0 – 5.5 mmol/L** |
-| Fasting floor, reached in 2 game days | **3.5 mmol/L** |
+| Fasting floor, reached in 6 game days | **3.5 mmol/L** |
 | Steep insulin response | **> 8.0 mmol/L** |
 | Baseline insulin index | **1.0** |
 
 **What food is worth**
 
-| Food | Glucose |
-| --- | --- |
-| Bread, and grapefruit juice | **+0.7** |
-| Cooked meat and fish | **+0.5** |
-| Raw meat and fish | **+0.4** |
-| Plant food - fruit, vegetables, kelp, seaweed, mushrooms, willow broth, grapefruit | **+0.4** |
+| Food | Glucose | Water |
+| --- | --- | --- |
+| Bread, and every sweetened fruit drink | **+0.7** | — |
+| An assembled plate: a stew, a sandwich, a pasta | **+0.6** | — |
+| Cooked meat and fish | **+0.25** | — |
+| Raw meat and fish | **+0.2** | — |
+| Plant food - fruit, vegetables, kelp, seaweed, mushrooms, willow broth, grapefruit | **+0.2** | **+0.4** |
 
 One loaf of bread is enough to leave the reference range from a normal 5.0 - a body reads 5.7 after
 one - and one glass of grapefruit juice does the same, because the sugar stirred into it is the fast
 carbohydrate. Everything else edible that is not meat counts as plant food, so living on berries does
-not avoid the glucose cost of eating.
+not avoid the glucose cost of eating. Plant food also carries the water that was in it: **0.4** a
+serving, a fortieth of a glass. It is not a drink and will not keep a player hydrated, but a diet of
+fruit and vegetables no longer dehydrates them either. Anything that already carries water of its own
+is left alone rather than stacked - every drink has its glass, and the grapefruit slice, which is both
+a food and a drink, keeps its own third of a bottle.
 
 * **A meal is gone within half a game day, and a bigger one falls faster.** The insulin index climbs
   across the reference range and then twice as steeply past 8.0, so a 20 mmol/L spike comes down
   further in the same time than a 9 does. Nothing overshoots into hypoglycaemia, because the body's
   own insulin switches off at the bottom of the range.
-* **Fasting costs 1.5 mmol/L over the first two days** (5.0 → 3.5) and less after that: past the
-  floor the fall scales with what is left instead of running straight to zero.
+* **Fasting costs 1.5 mmol/L over the first six days** (5.0 → 3.5) and less after that: past the
+  floor the fall scales with what is left instead of running straight to zero. The rate was cut to a
+  third of what it was, so a body that never eats now lasts three times as long between meals.
+* **A surplus above 5.5 is shed faster than ever**, not slower: past the top of the reference range
+  the body clears at 1.5x the *original* rate, five and a half days' worth of the old drain every
+  day. So slowing the normal band did not make a spike linger - an overshoot is pulled back into the
+  range more briskly than it was before, and the two rates meet with a step at 5.5 rather than a ramp.
 * **Hypoglycaemia:**
 
   | Glucose | Effect |
@@ -403,8 +427,9 @@ not avoid the glucose cost of eating.
   | < 1.7 mmol/L | mining fatigue **+ weakness** |
   | < 1.3 mmol/L | the above, plus **magic damage** every two seconds: `(1.3 - glucose) * 1.0` |
 
-  The damage ignores armour - the brain has no fuel but glucose. Eight game days without food leaves
-  a body at **0.97 mmol/L**, which is a crisis.
+  The damage ignores armour - the brain has no fuel but glucose. It now takes roughly eighteen game
+  days without food to reach that crisis rather than eight, because the drain is a third of what it
+  was - the starvation curve is gentler, not absent.
 * **On peaceful difficulty nothing moves at all.** Peaceful is not a sugar hold any more - the whole
   system is switched off there, exactly as it is in creative, so no effect is applied and no damage is
   dealt. The state is *frozen* rather than reset, so it is not a way to top yourself up - and a body
@@ -469,7 +494,7 @@ crafts into **eight slices**.
 | Saturation | **3 points** |
 | Water | **5** |
 | Naringin | **1** |
-| Vitamin C | **10 µmol/L**, the same as a carrot |
+| Vitamin C | **10 µmol/L** (15 with the plant supplement), the same as a carrot |
 | Always edible | **yes** - a dose should not have to wait for a full stomach |
 
 A slice is the only food in the mod that also hydrates - a drink's job done by a snack, at a third of
@@ -487,8 +512,8 @@ collects a full drink's water. The sugar is the only thing it adds.
 | Hunger | 2 | **0** - a drink, not a meal |
 | Water | 5 | **15**, the standard drink |
 | Naringin | 1 | **1** |
-| Vitamin C | 10 µmol/L | **10 µmol/L** |
-| Glucose | 0.4, plant food | **0.7**, the sugar's |
+| Vitamin C | 10 µmol/L (15 with the supplement) | **10 µmol/L** (15 with the supplement) |
+| Glucose | 0.2, plant food | **0.7**, the sugar's |
 | Always edible | yes | **yes** |
 
 So a glass is what to drink when the water matters too, and it is charged for its sugar as bread is
@@ -563,23 +588,30 @@ with no plant food at all.
 
 **What is worth what**
 
-| Food | Vitamin C |
-| --- | --- |
-| Apple | +12.0 |
-| Golden apple | +20.0 |
-| Enchanted golden apple | +30.0 |
-| Melon slice | +8.0 |
-| Sweet berries / glow berries | +6.0 |
-| Carrot | +10.0 |
-| Golden carrot | +15.0 |
-| Pumpkin pie | +15.0 |
-| Beetroot | +6.0 |
-| Beetroot soup | +16.0 |
-| Mandrake fruit | +10.0 |
-| Grapefruit slice | +10.0 |
-| Grapefruit juice | +10.0 |
-| Seaweed | +5.0 |
-| Cooked seaweed | +3.0 |
+Every plant food carries an extra **+5.0** on top of the figures below, so the effective amount is
+the table plus five. The supplement is an addition, never a replacement: a plant with no figure of its
+own - a potato - is worth exactly the +5.0. This is what makes a diet of fruit and
+vegetables a complete one rather than a marginal one.
+
+| Food | Vitamin C | With the supplement |
+| --- | --- | --- |
+| Apple | +12.0 | +17.0 |
+| Golden apple | +20.0 | +25.0 |
+| Enchanted golden apple | +30.0 | +35.0 |
+| Melon slice | +8.0 | +13.0 |
+| Sweet berries / glow berries | +6.0 | +11.0 |
+| Carrot | +10.0 | +15.0 |
+| Golden carrot | +15.0 | +20.0 |
+| Pumpkin pie | +15.0 | +20.0 |
+| Beetroot | +6.0 | +11.0 |
+| Beetroot soup | +16.0 | +21.0 |
+| Mandrake fruit | +10.0 | +15.0 |
+| Grapefruit slice | +10.0 | +15.0 |
+| Grapefruit juice | +10.0 | +15.0 |
+| Seaweed | +5.0 | +10.0 |
+| Cooked seaweed | +3.0 | +8.0 |
+| Potato, and anything else green with no figure of its own | — | +5.0 |
+| Farmer's Delight onion | +6.0 | +11.0 |
 
 ---
 
@@ -682,6 +714,15 @@ free to refill.
 | sugar | wine | 7% | to reach 40% |
 | wheat | beer | 7% mash | **yes** - the mash cannot be bottled |
 | grapes + sugar | grape wine | **5%** | no - bottled as it is |
+
+**Grape juice: the same drink before the yeast.** Grapes, sugar and a **water bottle** at a crafting
+table, or grapes and sugar in a Farmer's Delight **cooking pot** drawn into a **glass bottle**. It is
+the unfermented half of the tank's work, and the reason to make one is that it feeds a body with
+**no ethanol at all** - it is what a player drinks when they want the grape rather than the drink. It
+carries a full glass of water, the sugar's **0.7** glucose, and vitamin C only from the plant
+supplement's +5 - it counts as plant food because it is pressed from one, but the mod does not credit a
+grape with a figure of its own. Zero hunger, and always edible: a glass of juice is not a meal, and
+a full stomach should not stand between a player and a drink they made on purpose.
 
 **Where the grapes come from.** A wild vine in the plains and temperate forests - see §1 - or seeds
 from the fruit: one grape in a crafting grid gives two seeds, sown into dirt, grass, farmland or
@@ -817,16 +858,17 @@ vanilla one does, and all **80** of its edible foods and drinks are priced.
 | What | Charge | Examples |
 | --- | --- | --- |
 | Cured meat | **sodium and chloride** | the bacon and ham cuts +0.8, a bacon sandwich or bacon and eggs +1.2, honey-glazed ham +2.0 mmol/L |
-| Vegetables and salads | **vitamin C** | a tomato +10, worth a carrot; cabbage +8, onion and pumpkin slice +6; the salads are the richest at +14 to +18 |
+| Vegetables and salads | **vitamin C, and the plant food's water** | a tomato +10, worth a carrot; cabbage +8, onion and pumpkin slice +6; the salads are the richest at +14 to +18 - and every one of them adds the plant supplement's **+5** on top |
 | Kelp rolls | **iodine** | a roll +0.15 µmol/L, a slice exactly a third of one |
-| Everything edible | **blood glucose** | by what it is made of: plant food 0.4, raw meat 0.4, cooked meat 0.5, an assembled plate **0.6**, bread and sweets 0.7 |
+| Everything edible | **blood glucose** | by what it is made of: plant food 0.2, raw meat 0.2, cooked meat 0.25, an assembled plate **0.6**, bread and sweets 0.7 |
 | Bottled milk, three sweetened drinks, nine soups | **water** | one drink's worth, as vanilla's milk bucket and mushroom stew |
 
 Its cured meat is the **only** salt in that mod - it adds no salt item and no recipe that uses one -
 so a rasher is salty without being a spoonful of salt, and every cured food sits below a serving of
 Aliment's own. Its raw dough, raw pasta, chicken cuts and nether salad carry the food-poisoning risk
-raw meat does. See §13 for the glucose bands, §15 for vitamin C, §21 for iodine and §7 for what a
-deficit does.
+raw meat does. Its vegetables, salads and fruit also carry the plant food's **0.4** water and its
+**+5** vitamin C supplement, on the same rule and with the same exclusions as everything else. See §13
+for the glucose bands, §15 for vitamin C, §21 for iodine and §7 for what a deficit does.
 
 ---
 
@@ -857,7 +899,7 @@ The mod has its own advancement tab, rooted at the first piece of willow bark.
 | Advancement | Description | Frame | For |
 | --- | --- | --- | --- |
 | **Ancient Anti-inflammatory** | Obtain a piece of willow bark | task, root | getting willow bark, by stripping a log or picking it up |
-| **Just Crude Salt** | Crush a piece of rock salt ore | task | grinding rock salt ore |
+| **Just Crude Salt** | Crush rock salt into crude salt | task | grinding crushed rock salt |
 | **Crushed and Crushed Again** | Crush a piece of crude salt | task | grinding crude salt into powder |
 | **Refined Salt** | High-purity refined table salt | task | getting salt powder out of a boiled-dry cauldron |
 | **Even If Dangerous** | Taste the mandrake | task | eating a mandrake fruit or seed |
@@ -888,9 +930,10 @@ and metabolised within one game day.
    the weakness icon instead.
 3. **Raw willow broth is an infection source and boiled broth is not.** Those 60 seconds are worth
    waiting for.
-4. **Iodine is gone in five days and the body will not hold on to it.** One kelp a day is not
-   enough, two is comfortable; without it you walk into severe hypothyroidism and a lower temperature
-   set point. The surplus does not store either - it clears faster than the flat leak, so it never piles up.
+4. **Iodine is gone in fifteen days and the body will not hold on to it.** One kelp a day is now more
+   than enough where two used to be needed; without any you walk into severe hypothyroidism and a lower
+   temperature set point. The surplus does not store either - it clears three times faster than it used
+   to, so it never piles up however gentle the ordinary leak has become.
 5. **Salicin is an anti-inflammatory and an antipyretic at once**, because it blocks prostaglandins,
    which is what fever runs on.
 6. **Overdosing is more dangerous than the infection.** Below 12 inflammation you are
@@ -901,8 +944,10 @@ and metabolised within one game day.
 8. **Willow leaves never drop apples.**
 9. **Every tremor has a cause** and every cause has an icon in the effect bar.
 10. **Blood glucose only ever falls on its own.** Nothing synthesises it, so an unfed player drifts
-    from 5.0 to 3.5 in two game days and into a crisis by the eighth. Bread is worth 0.7 and
-    everything else 0.4–0.5. On peaceful it does not move at all, in either direction - see §13.
+    from 5.0 to 3.5 in six game days and into a crisis around the eighteenth - the drain is a third of
+    what it was, so it lasts far longer but still only goes one way. Bread and sweetened drinks are
+    worth 0.7, an assembled plate 0.6, and the plain foods 0.2–0.25. On peaceful it does not move at
+    all, in either direction - see §13.
 11. **An insulin injection is not a treatment.** It lowers blood glucose and nothing switches it off;
     two doses inside the cooldown are a crisis, and eating is the only way out.
 12. **Grapefruit changes how long your other medicine lasts.** Nine slices make a dose of coptis last

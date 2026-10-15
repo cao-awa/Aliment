@@ -360,6 +360,15 @@ function New-GvGrapeWine([string]$gvOut) {
     Save-GPng $gvOut $gw 16 16
 }
 
+# The unfermented half of the same drink: the same bottle, the same liquid mask, and a tint that is
+# the wine's red-violet lifted towards the purple of the ripe grapes it is pressed from. Drawing it
+# from the same two vanilla files as the wine is what makes the pair read as one drink at two stages,
+# which is exactly what they are.
+function New-GvGrapeJuice([string]$gvOut) {
+    $gj = Get-GvVanillaPotionTint '#8B4FA8'
+    Save-GPng $gvOut $gj 16 16
+}
+
 # ---------------------------------------------------------------------
 # 8/9. block/tank_liquid_grape.png and tank_liquid_grape_wine.png
 #      These are not art: they are the tank's liquid surface, and the
@@ -395,6 +404,7 @@ New-GvArt (Join-Path $gvBlockDir 'grape_vine_stage3.png') $gvStage3 'grape_vine_
 New-GvArt (Join-Path $gvItemDir 'grape.png') $gvGrapeItem 'grape'
 New-GvArt (Join-Path $gvItemDir 'grape_seeds.png') $gvSeeds 'grape_seeds'
 New-GvGrapeWine (Join-Path $gvItemDir 'grape_wine.png')
+New-GvGrapeJuice (Join-Path $gvItemDir 'grape_juice.png')
 
 New-GvTankLiquid (Join-Path $gvBlockDir 'tank_liquid_grape.png') '#4A2C63'
 New-GvTankLiquid (Join-Path $gvBlockDir 'tank_liquid_grape_wine.png') '#5A1620'

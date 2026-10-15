@@ -95,10 +95,10 @@ The human body cannot synthesize iodine and **does not retain it permanently**:
 | Kelp Roll `farmersdelight:kelp_roll` | **+0.15 µmol/L** | *Farmer's Delight.* Three dried kelp wrapped around a bowl of rice; the rice is most of it, so it is charged as a dish containing kelp and not as three dried kelp |
 | Kelp Roll Slice `farmersdelight:kelp_roll_slice` | **+0.05 µmol/L** | *Farmer's Delight.* A third of a roll, exactly as the cutting board divides it |
 
-Without dietary iodine, plasma concentrations steadily drain at a fixed rate of 0.09 µmol/L per day, **depleting completely to the floor (0.05 µmol/L) in exactly 5 in-game days**:
-* **Daily Maintenance**: 0.09 µmol/L is lost daily via basal metabolism (accelerated during fever and sweating).
+Without dietary iodine, plasma concentrations steadily drain at a fixed rate of 0.03 µmol/L per day, **depleting completely to the floor (0.05 µmol/L) in exactly 15 in-game days**:
+* **Daily Maintenance**: 0.03 µmol/L is lost daily via basal metabolism (accelerated during fever and sweating). A surplus above normal clears three times faster than it did, so an overshoot is corrected quickly even though the ordinary leak is now much gentler.
 * **Dietary Strategy**:
-  * **Daily Upkeep**: 2 dried kelp (+0.10 each) or 2 raw seaweed (+0.10 each) covers a day's basal decay; one alone is not quite enough.
+  * **Daily Upkeep**: one dried kelp or one raw seaweed (+0.10 each) now covers more than three days of basal decay, where two a day used to be needed to hold the reference range.
   * **Acute Treatment**: cooked seaweed (+0.125) replenishes a depleted thyroid reserve, and four of them carry a severely depleted store most of the way back.
   * **Expedition Supply**: Seaweed iodized salt (+0.20) provides a large iodine dose while concurrently replenishing sodium and chloride (+1.5 mmol/L each) to counteract dilutional hyponatremia from drinking water.
 
@@ -125,6 +125,7 @@ Vitamin C cannot be synthesized endogenously by humans. Serum reference values a
   - **Mild Deficiency (< 40.0 µmol/L, subclinical deficiency)**: Impaired collagen synthesis and muscular stamina impart **Mining Fatigue I**.
   - **Severe Deficiency (< 15.0 µmol/L, scurvy)**: Profound physical exhaustion and tissue breakdown add **Weakness I** (simultaneously inflicting Mining Fatigue I + Weakness I).
   - **Excess (> 80.0 µmol/L)**: Ascorbic acid is water-soluble; excess concentrations are safely excreted without adverse pathology.
+* **Every plant food carries a supplement of +5.0 µmol/L on top of its own figure**, so a diet of fruit and vegetables never runs short however little any single item is worth. A potato, which has no figure of its own, is worth exactly the supplement. This is an addition and never a replacement: an apple's own 12 becomes 17.
 * **Dietary Sources (Fruits, Root Vegetables, and Plant Foods)**:
 
 | Food Item | Vitamin C Yield |
@@ -143,6 +144,10 @@ Vitamin C cannot be synthesized endogenously by humans. Serum reference values a
 | Seaweed `aliment:seaweed` | **+5.0 µmol/L** |
 | Cooked Seaweed `aliment:cooked_seaweed` | **+3.0 µmol/L** |
 | Grapefruit Slice `aliment:grapefruit_slice` | **+10.0 µmol/L** - a plant food, and a citrus besides, so the same as a carrot |
+| Potato `minecraft:potato` and any other plant with no figure of its own | **+0**, earning only the +5.0 supplement above |
+
+Those are the figures each item **carries of its own**; what a body actually receives is that plus the
+plant supplement's **+5.0**, so an apple is 17, a carrot 15 and a potato 5.
 
 **Farmer's Delight's plants carry vitamin C on the same scale.** A vegetable is a root vegetable
 wherever it comes from, so a tomato is worth a carrot (**+10.0**), a cabbage **+8.0**, an onion
@@ -163,8 +168,9 @@ in a grilled salmon however it is cooked.
 | **Basal Water Depletion** | **5 game days from full (100) to empty (0)** (without fever or sweating) |
 | **Fever at 39 °C** | **3.5 game days to empty (100 → 0)** (accelerated sweating) |
 | **Severe Hyperthermia at 40 °C** | **2 game days to empty (100 → 0)** (profuse sweating) |
-| Hydration per Beverage | **+15** (water, potions, stew, milk, willow bark soups, and salted variants) |
+| Hydration per Beverage | **+15** (water, potions, stew, milk, willow bark soups, both juices, and salted variants) |
 | Hydration per Grapefruit Slice | **+5** - a slice is eaten rather than drunk, so it does not get a drink's worth |
+| Hydration per Plant Food | **+0.4** - the water that was in the food; a fortieth of a glass, and skipped wherever the item already carries water of its own |
 
 Above 100, kidneys accelerate excretion (up to 2x normal rate), concurrently **diluting and washing out serum electrolytes**; high sodium and high calcium also intensify thirst. Temperatures exceeding 38.25 °C activate non-linear diaphoresis (sweating), multiplying water loss with higher fevers.
 
@@ -315,11 +321,11 @@ Pathogens enter the body through three deterministic infection pathways:
 | --- | --- | --- | --- |
 | Raw meat (beef, pork, chicken, mutton, rabbit, fish), rotten flesh, poisonous potato | Bacteria | **30%** | +6 load |
 | Raw willow bark soup (including salted variants) | Bacteria | **30%** | +6 load |
-| Proximity within 2 blocks of **any living mob** | Virus | **5% / second** | +5 load |
+| Proximity within 2 blocks of **any living mob** | Virus | **1% / second** | +5 load |
 | **Severe Immunosuppression** (inflammation ≤ 12) | Bacteria | **15% / second** | **+4 to +12 (random)** |
 
 * Food transmission triggers on `Item.finishUsingItem`.
-* Contact transmission evaluates against all nearby `Mob` entities (cows, wolves, villagers, bats). Standing near dense livestock for 10 seconds almost guarantees viral inoculation.
+* Contact transmission evaluates against all nearby `Mob` entities (cows, wolves, villagers, bats). It rolls once a second, so standing still still catches things, only far more slowly: a passive mob pressed against the player for a full minute infects about **45%** of the time rather than almost certainly.
 * **Opportunistic Infection**: When inflammation drops to ≤ 12, opportunistic bacterial colonization occurs without external exposure, making excessive dosing of salicin or dexamethasone genuinely dangerous.
 
 ---
@@ -583,12 +589,14 @@ Iodine is the one mineral with an extra term of its own, since it has no homeost
 
 ```scala
 val excess = Math.max(iodine - 0.50f, 0f)
-val iodineLoss = (drainFraction + flush * EXCRETION_IODINE) * 0.50f + excess * 0.000002f
+val iodineLoss = (drainFraction + flush * EXCRETION_IODINE) * 0.50f + excess * 0.000006f
 ```
 
-The leak is flat **while the value is at or below normal**, so "five days from 0.50 to the 0.05 floor" stays
-an exact figure; only a **surplus** is cleared any faster, which makes an excess drain away sooner without
-bending the depletion curve the tests and this document both state.
+The leak is flat **while the value is at or below normal**, so "fifteen days from 0.50 to the 0.05 floor"
+stays an exact figure; only a **surplus** is cleared any faster. The ordinary leak was cut to a third
+(five days to fifteen) and the surplus clearance was tripled, which are deliberately opposite
+directions: a body only just keeping up holds its iodine far longer, while a body carrying a pile of it
+gets rid of the pile quickly.
 
 ### Thermal Balance
 
@@ -626,7 +634,9 @@ temperature += (targetTemperature - temperature) * 0.0004f
 ### Pathogen Symptoms (Load ≥ 8)
 - Mining speed reduced up to **-6%**.
 - Food exhaustion multiplier increased up to `1 + 0.5 * severity`.
-- Camera tremors: rolled every **15 seconds** at a **20% chance** for 16 ticks.
+- Camera tremors: rolled every **15 seconds** at a **20% chance** for 16 ticks. A cytokine storm, at
+  an inflammation of **75** or more, adds another **full 20%** on top; below 75 the immune system
+  contributes nothing, however far above an ordinary response the inflammation has climbed.
 - **Septic Magic Damage (Load ≥ 60)**: `1 + (load - 60) / 40` damage every two seconds, ignoring armor.
 
 ### Hydration Symptoms
@@ -677,7 +687,7 @@ back, so `glucose` is a resource the player manages rather than a value the mode
 | --- | --- | --- |
 | Normal / fasting | **5.0** | mmol/L |
 | Reference range | **4.0 – 5.5** | mmol/L |
-| Fasting floor (2 game days) | **3.5** | mmol/L |
+| Fasting floor (6 game days) | **3.5** | mmol/L |
 | Elevated (steep insulin response) | **> 8.0** | mmol/L |
 | Model limits | 0.0 – 30.0 | mmol/L |
 | Baseline insulin index | **1.0** | index |
@@ -688,14 +698,34 @@ back, so `glucose` is a resource the player manages rather than a value the mode
 | --- | --- | --- |
 | Starch, sugar and bread | **+0.7** | `minecraft:bread`, sweet drinks, a bowl of cooked rice |
 | Mixed dish | **+0.6** | an assembled plate: a stew, a sandwich, a pasta |
-| Cooked meat and fish | **+0.5** | cooked beef, porkchop, chicken, mutton, rabbit, cod, salmon |
-| Raw meat and fish | **+0.4** | beef, porkchop, chicken, mutton, rabbit, cod, salmon, tropical fish, rotten flesh |
-| Plant food | **+0.4** | fruit, vegetables, kelp, seaweed, mushrooms, every willow bark soup |
+| Cooked meat and fish | **+0.25** | cooked beef, porkchop, chicken, mutton, rabbit, cod, salmon |
+| Raw meat and fish | **+0.2** | beef, porkchop, chicken, mutton, rabbit, cod, salmon, tropical fish, rotten flesh |
+| Plant food | **+0.2** | fruit, vegetables, kelp, seaweed, mushrooms, every willow bark soup |
 
 Bread is the only food that leaves the reference range on its own from a normal 5.0 (5.0 + 0.7 =
 5.7), which is why it is separated from the rest of the plant food. Everything edible that is not meat
 or bread counts as plant food, so a player cannot dodge the glucose cost of eating by living on
 berries.
+
+**The three plain-food figures were halved, and bread deliberately was not.** They were 0.4 / 0.4 /
+0.5; an ordinary meal of bread and vegetables was walking a body into the insulin response rather than
+anything the player had done wrong, and it charged a carrot as much as a steak. Bread keeps its 0.7
+because refined starch really is the fast carbohydrate, and that it is worse than what grows in a
+field is the point of the band - so the halving is one-sided on purpose. Sweet drinks (0.7) and
+mixed dishes (0.6) keep their own figures for the same reason: both are judged by what was *done* to
+the food, not by what it grew as.
+
+**Note that the glucose figure no longer identifies the kind of food.** Plant food and raw meat are
+both worth 0.2 now, so anything that needs to tell them apart - as the water below does - has to ask
+the classification rather than compare the number.
+
+**Plant food carries the water that was in it: +0.4 a serving.** Not a drink, and not a substitute for
+one: it is a fortieth of a glass, against the 15 a drink is worth. What it buys is that a player
+living on fruit and vegetables is no longer slowly dehydrating on food that is mostly water by weight.
+It is applied only where nothing else has already hydrated the item - every drink has just been given
+its glass, and the grapefruit slice is a food *and* a drink and keeps its own 5 - so nothing is
+counted twice. Farmer's Delight's vegetables, salads and fruit are on the same rule; its soups are
+drinks and its assembled plates are meals, and neither is charged the plant figure.
 
 **The mixed dish band exists for assembled food.** A plate built from starch, meat and vegetable at
 once - a stew, a sandwich, a pasta - is charged **+0.6**, between plant food and bread, because the
@@ -708,12 +738,15 @@ Delight's thirty-six dishes are the foods that use this band; the mod's own plai
 Three terms move glucose, and they are separate because they behave differently:
 
 ```scala
-// 1. The basal drain: a flat 1.5 mmol/L over two in-game days, which is the fasting path from
+// 1. The basal drain: a flat 1.5 mmol/L over SIX in-game days, which is the fasting path from
 //    5.0 down to 3.5. Past 3.5 it scales with what is left, so the fall slows down rather than
-//    running straight to zero.
+//    running straight to zero. Above the top of the reference range, 5.5, the excess rate takes
+//    over instead: 1.5x the ORIGINAL two-day drain, so a spike is shed faster than it ever was.
+val yardstick = 1.5f / 48000f                 // 3.125e-5 per tick, the original rate
 val basal =
-  if (glucose > 3.5f) 1.5f / 48000f          // 3.125e-5 per tick
-  else (1.5f / 48000f) * (glucose / 3.5f)
+  if (glucose > 5.5f) yardstick * 1.5f        // 4.6875e-5 per tick - an overshoot is cleared
+  else if (glucose > 3.5f) yardstick / 3f     // 1.0417e-5 per tick - six days, not two
+  else (yardstick / 3f) * (glucose / 3.5f)
 
 // 2. The body's own insulin. It is switched off at the bottom of the reference range: the pancreas
 //    does not drive a body hypoglycaemic on its own.
@@ -727,6 +760,10 @@ val injected = 0.00008f * insulinAspart
 
 glucose = clamp(glucose - basal - endogenous - injected, 0f, 30f)
 ```
+
+The two live rates are deliberately written as a fraction and a multiple of the same *yardstick*
+rather than as their own literals, so the relationship between them survives a recalibration: the
+normal band is gentler than the model's original rate, and an overshoot is faster than it.
 
 The insulin index itself relaxes towards what the current glucose asks for, at 0.0005 per tick (a
 2,000-tick time constant):
@@ -752,16 +789,17 @@ insulin = clamp(insulin + (target - insulin) * 0.0005f, 0f, 60f)
 
 | Scenario | Result |
 | --- | --- |
-| Fasting from 5.0 | Reaches **3.49** in exactly 2 game days (48,000 ticks) |
-| Fasting from 3.5 | The next 2 days cost **1.22** rather than 1.5 - the fall slows down |
-| A meal of 8.0 | Back to **4.87** within half a game day |
-| A meal of 10.0 | Back to **4.77** within half a game day |
-| A meal of 20.0 | Back to **3.90** within half a game day |
-| A meal of 30.0 | Back to **3.85** within half a game day |
+| Fasting from 5.0 | Reaches **3.49** in exactly 6 game days (144,000 ticks) |
+| Fasting from 3.5 | The next 2 days cost **0.46** rather than 1.5 - the fall slows down |
+| A surplus of 10.0 | Shed 4.5x faster than the normal band, and back under 5.5 within four days |
+| A meal of 9.0 | Back to **4.90** within half a game day |
+| A meal of 10.0 | Back to **4.83** within half a game day |
+| A meal of 20.0 | Back to **3.97** within half a game day |
+| A meal of 30.0 | Back to **3.95** within half a game day |
 | After 2,400 ticks | A 20 falls further than a 9, at every point on the curve |
-| One injection of insulin aspart | 5.0 -> **2.74**: a dip, not yet a crash |
+| One injection of insulin aspart | 5.0 -> **3.16**: a dip, not yet a crash |
 | Two injections | A hypoglycaemic crash, because nothing switches the injected insulin off |
-| Eight game days without food | **0.97** mmol/L: a hypoglycaemic crisis |
+| Eighteen game days without food | **1.48** mmol/L: a hypoglycaemic crisis |
 
 ### Insulin Aspart `insulinAspart`
 
@@ -886,7 +924,7 @@ Implemented in **Java** to allow Loom annotation processing and compile-time ver
 | --- | --- | --- |
 | `ItemMixin` | `Item.finishUsingItem` | Hooks finished ingestion before server tick inventory mutation |
 | `PlayerMixin` | `Player.causeFoodExhaustion` | Scales all exhaustion sources uniformly |
-| `GrindstoneInputSlotMixin` | `GrindstoneMenu$2` / `GrindstoneMenu$3.mayPlace` | Allows botanical herbs, salt ore, and bark into vanilla grindstone slots |
+| `GrindstoneInputSlotMixin` | `GrindstoneMenu$2` / `GrindstoneMenu$3.mayPlace` | Allows botanical herbs, crushed rock salt, salt ore, and bark into vanilla grindstone slots |
 | `GrindstoneMenuMixin` | `GrindstoneMenu.computeResult` | Integrates `AlimentGrinding` recipe translation |
 | `CameraMixin` (Client) | `Camera.alignWithEntity` | Injects rotational camera shake without moving physical entity hitboxes |
 | `FogRendererMixin` (Client) | `FogRenderer.setupFog` | Contracts visual fog distance to 8 blocks during anticholinergic intoxication |
@@ -897,15 +935,15 @@ Implemented in **Java** to allow Loom annotation processing and compile-time ver
 ## Salt Manufacture and Processing
 
 ```
-Rock Salt Ore ──Grindstone──> Crude Salt ×9 ──Grindstone──> Crude Salt Powder
-                                                    │
-                                                    ├─ Use on Water Cauldron ──> Brine Cauldron
-                                                    │                                │
-                                                    │                         Campfire underneath
-                                                    │                                │ Evaporates every 30s
-                                                    │                                ▼
-                                                    │                       Boiled Dry ──> Salt Powder ×1
-                                                    │
+Rock Salt Ore ──mined──> Crushed Rock Salt ×1 ──Grindstone──> Crude Salt ×9 ──Grindstone──> Crude Salt Powder
+                                                                      │
+                                                                      ├─ Use on Water Cauldron ──> Brine Cauldron
+                                                                      │                                │
+                                                                      │                         Campfire underneath
+                                                                      │                                │ Evaporates every 30s
+                                                                      │                                ▼
+                                                                      │                       Boiled Dry ──> Salt Powder ×1
+                                                                      │
 Crude Salt + Water/Soup/Stew ──> Crude Salt Water / Crude Salt Broth
 Salt Powder + Water/Soup/Stew ──> Salt Water / Refined Salt Broth
 ```
@@ -913,7 +951,7 @@ Salt Powder + Water/Soup/Stew ──> Salt Water / Refined Salt Broth
 * **Stirring Rod**: Right-click a brine cauldron to advance evaporation by one stage, consuming 1 durability (16 max). Crafted with **two sticks vertically aligned**.
 * Brine cauldrons feature 3 visual concentration stages (`stage 0/1/2`).
 * Removing the campfire pauses evaporation without resetting progress.
-* Rock salt ore drops itself and requires a stone pickaxe or better, generating between y=20–90 at 6 veins per chunk.
+* Rock salt ore drops **one crushed rock salt** rather than itself, and requires a stone pickaxe or better, generating between y=20–90 at 6 veins per chunk. The ore block still has its item form, so it stays placeable and still grinds into a shard in one step rather than two.
 
 ---
 

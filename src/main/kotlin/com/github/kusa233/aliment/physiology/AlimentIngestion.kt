@@ -206,6 +206,30 @@ object AlimentIngestion {
             data = AlimentPhysiology.drink(data, water)
         }
 
+        // Plant food carries the water that was in it. It is not a drink - [AlimentData.WATER_PER_PLANT_FOOD]
+        // is a fortieth of a glass - but a player who lives on fruit and vegetables should not be
+        // dehydrating on food that is mostly water by weight.
+        //
+        // Anything that already carries water of its own is skipped rather than stacked: every drink
+        // has just been given its glass above, and a grapefruit slice is both a food and a drink and
+        // has a third of a bottle of its own further down. Note this cannot be decided by looking at
+        // the glucose figure - plants and raw meat are worth the same 0.2 now - so it asks the set.
+        if (isPlantFood(stack.item) && !isDrink(stack.item) &&
+            stack.item !== AlimentItems.GRAPEFRUIT_SLICE
+        ) {
+            data = AlimentPhysiology.drink(data, AlimentData.WATER_PER_PLANT_FOOD)
+        }
+
+        // Every plant food carries a little vitamin C as well, whatever its own figure is: this is a
+        // supplement on top, not a replacement for the amounts in the table further down. A player who
+        // eats fruit and vegetables therefore never runs short of ascorbate, which is the point - the
+        // diet that supplies it is the diet that was already the right one. It is applied here rather
+        // than in the `when` block because it has to reach every plant food, including the ones that
+        // have no arm of their own there.
+        if (isPlantFood(stack.item)) {
+            data = AlimentPhysiology.vitaminC(data, AlimentData.VITAMIN_C_PER_PLANT_FOOD)
+        }
+
         if (stack.item === AlimentItems.WINE) {
             val concentration = WineItem.getConcentration(stack)
             data = AlimentPhysiology.addEthanol(data, concentration)
@@ -397,11 +421,13 @@ object AlimentIngestion {
     /**
      * Sweetened fruit drinks, at the same +0.7 as bread.
      *
-     * Grapefruit juice is pressed from a plant food, which would earn it the plant figure of +0.4,
-     * but a glass has had sugar stirred into it - that is what the recipe is - and sugar is the fast
-     * carbohydrate. So it is charged as bread is charged, not as the fruit it came from is.
+     * Both are pressed from a plant food, which would earn them the plant figure of +0.4, but a glass
+     * has had sugar stirred into it - that is what the recipe is - and sugar is the fast carbohydrate.
+     * So they are charged as bread is charged, not as the fruit they came from is. Note the
+     * *un*sweetened thing they came from keeps its own figure: a bunch of grapes is plant food at
+     * +0.4, and it is the glass of juice that costs the extra.
      */
-    private val SWEET_DRINK: Set<Item> = setOf(AlimentItems.GRAPEFRUIT_JUICE)
+    private val SWEET_DRINK: Set<Item> = setOf(AlimentItems.GRAPEFRUIT_JUICE, AlimentItems.GRAPE_JUICE)
 
     /** Raw meat and fish, at the same +0.4 as plant food. */
     private val RAW_MEAT: Set<Item> = setOf(
@@ -474,6 +500,12 @@ object AlimentIngestion {
         AlimentItems.SALT_RAW_WILLOW_BARK_SOUP,
         AlimentItems.GRAPEFRUIT_SLICE,
         AlimentItems.GRAPE,
+        // The two juices are here for the vitamin C supplement, not for the water: they are drinks,
+        // and the water rule skips anything a drink has already been given its glass for. Listing
+        // them keeps a glass of juice worth exactly what the fruit in it was worth, so pressing a
+        // grapefruit does not throw its ascorbate away.
+        AlimentItems.GRAPEFRUIT_JUICE,
+        AlimentItems.GRAPE_JUICE,
     )
 
     /**
@@ -496,6 +528,19 @@ object AlimentIngestion {
     }
 
     /**
+     * Whether [item] is plant food: fruit, vegetables, fungi, seaweed, and anything made of them.
+     *
+     * This is deliberately *not* "adds [AlimentData.GLUCOSE_PER_PLANT_FOOD]" - since the plain-food
+     * figures were halved, plant food and raw meat are both worth 0.2, so the glucose value no longer
+     * identifies the kind. It asks the same set the glucose classifier does, and the Farmer's
+     * Delight equivalent behind its guard.
+     *
+     * What it is for is the water such food carries; see [onItemConsumed].
+     */
+    fun isPlantFood(item: Item): Boolean =
+        item in PLANT_FOOD || FarmersDelightNutrition.isPlantFood(item)
+
+    /**
      * Anything the player drinks, which counts towards the water index.
      *
      * Milk is on the list: it is a drink like any other, so it is worth exactly
@@ -510,6 +555,7 @@ object AlimentIngestion {
         item === AlimentItems.WINE ||
         item === AlimentItems.BEER ||
         item === AlimentItems.GRAPE_WINE ||
+        item === AlimentItems.GRAPE_JUICE ||
         item === AlimentItems.GRAPEFRUIT_JUICE ||
         item === AlimentItems.EPHEDRINE ||
         item === AlimentItems.COPTIS_POTION ||

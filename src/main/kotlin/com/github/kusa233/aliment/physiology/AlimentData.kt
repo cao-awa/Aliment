@@ -510,6 +510,9 @@ data class AlimentData(
         /** Above this the response itself is the disease. */
         @JvmField val IMMUNE_STORM_THRESHOLD: Float = AlimentModelBridge.IMMUNE_STORM_THRESHOLD
 
+        /** Inflammation at which the immune system starts shaking the camera at all. */
+        @JvmField val IMMUNE_SHAKE_ONSET: Float = AlimentModelBridge.IMMUNE_SHAKE_ONSET
+
         @JvmField val MAX_PATHOGEN: Float = AlimentModelBridge.MAX_PATHOGEN
 
         /** Load at which the player starts showing symptoms. */
@@ -716,6 +719,16 @@ data class AlimentData(
 
         /** What one assembled dish - a stew, a sandwich, a plate of pasta - adds: a mixed plate. */
         @JvmField val GLUCOSE_PER_MIXED_DISH: Float = AlimentModelBridge.GLUCOSE_PER_MIXED_DISH
+
+        // ---------------------------------------------------------------- water from food
+
+        /** The water a serving of plant food carries. A drink is worth [WATER_PER_DRINK]. */
+        @JvmField val WATER_PER_PLANT_FOOD: Float = AlimentModelBridge.WATER_PER_PLANT_FOOD
+
+        // ---------------------------------------------------------------- vitamin C from food
+
+        /** The vitamin C every serving of plant food carries, on top of any figure of its own. */
+        @JvmField val VITAMIN_C_PER_PLANT_FOOD: Float = AlimentModelBridge.VITAMIN_C_PER_PLANT_FOOD
 
         // ---------------------------------------------------------------- naringin & CYP3A4
 

@@ -137,7 +137,15 @@ object AlimentItems {
 
     // ---------------------------------------------------------------- salt chain
 
-    /** Ground out of [AlimentBlocks.ROCK_SALT_ORE] - nine per ore. */
+    /**
+     * What [AlimentBlocks.ROCK_SALT_ORE] drops when it is mined.
+     *
+     * The ore used to drop itself; it now breaks into these instead, so the first step of the chain
+     * is the grindstone rather than the pickaxe.
+     */
+    val CRUSHED_ROCK_SALT: Item = Registration.registerItem("crushed_rock_salt", Item.Properties()) { Item(it) }
+
+    /** Ground out of [CRUSHED_ROCK_SALT] - nine per shard. */
     val CRUDE_SALT: Item = Registration.registerItem("crude_salt", Item.Properties()) { Item(it) }
 
     /** [CRUDE_SALT] ground again; this is what goes into the cauldron. */
@@ -462,6 +470,27 @@ object AlimentItems {
             .usingConvertsTo(Items.GLASS_BOTTLE)
             .stacksTo(16),
     ) { GrapeWineItem(it) }
+
+    /**
+     * Grape juice: grapes pressed with sugar, drunk from a glass bottle.
+     *
+     * The unfermented half of what the tank does. A bunch of grapes is a meal, and [GRAPE_WINE] is
+     * what happens if you leave it - this is the drink in between, and the reason to make one is that
+     * it feeds a body without putting any ethanol in it. There is no yeast in the recipe for the same
+     * reason: what makes it juice rather than wine is precisely what has not been added yet.
+     *
+     * It carries the grape's own vitamin C and the sugar's glucose, and the full drink's water. Hunger
+     * stays at zero, because a glass of juice is not a meal - the same call [GRAPEFRUIT_JUICE] makes,
+     * and `alwaysEdible` with it, so a full stomach is never what stands between a player and a drink
+     * they made on purpose.
+     */
+    val GRAPE_JUICE: Item = Registration.registerItem(
+        "grape_juice",
+        Item.Properties()
+            .food(buildFood(0, 0f, alwaysEdible = true), Consumables.defaultDrink().build())
+            .usingConvertsTo(Items.GLASS_BOTTLE)
+            .stacksTo(16),
+    ) { Item(it) }
 
     // ---------------------------------------------------------------- ephedra & ephedrine
 

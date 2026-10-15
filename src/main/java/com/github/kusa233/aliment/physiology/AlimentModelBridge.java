@@ -74,6 +74,9 @@ public final class AlimentModelBridge {
 
     public static final float MAX_PATHOGEN = ModelConstants.MAX_PATHOGEN();
 
+    /** Inflammation at which the immune system starts shaking the camera at all. */
+    public static final float IMMUNE_SHAKE_ONSET = ModelConstants.IMMUNE_SHAKE_ONSET();
+
     /** Load at which the player starts showing symptoms. */
     public static final float SYMPTOM_THRESHOLD = ModelConstants.SYMPTOM_THRESHOLD();
 
@@ -319,6 +322,21 @@ public final class AlimentModelBridge {
 
     /** What one assembled dish - a stew, a sandwich, a plate of pasta - adds: a mixed plate. */
     public static final float GLUCOSE_PER_MIXED_DISH = ModelConstants.GLUCOSE_PER_MIXED_DISH();
+
+    // ---------------------------------------------------------------- water from food
+
+    /** The water a serving of plant food carries. A drink is worth {@code WATER_PER_DRINK}. */
+    public static final float WATER_PER_PLANT_FOOD = ModelConstants.WATER_PER_PLANT_FOOD();
+
+    // ---------------------------------------------------------------- vitamin C from food
+
+    /**
+     * The vitamin C every serving of plant food carries, on top of any figure of its own.
+     *
+     * This is the one that makes the plant diet a complete one; see the model for why it is a
+     * supplement rather than a replacement.
+     */
+    public static final float VITAMIN_C_PER_PLANT_FOOD = ModelConstants.VITAMIN_C_PER_PLANT_FOOD();
 
     // ================================================================== the reference ranges
 
@@ -596,6 +614,11 @@ public final class AlimentModelBridge {
     /** Chance that one shake roll actually shakes the camera. */
     public static float shakeChance(AlimentData data) {
         return Physiology.shakeChance(toModel(data));
+    }
+
+    /** Peak degrees a triggered shake swings the camera by. */
+    public static float shakeAmplitude(AlimentData data) {
+        return Physiology.shakeAmplitude(toModel(data));
     }
 
     /** Extra food exhaustion while the body is unwell; a multiplier, so 1 is "nothing wrong". */

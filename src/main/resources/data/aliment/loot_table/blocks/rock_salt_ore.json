@@ -8,7 +8,7 @@
       "entries": [
         {
           "type": "minecraft:item",
-          "name": "aliment:rock_salt_ore"
+          "name": "aliment:crushed_rock_salt"
         }
       ],
       "rolls": 1.0

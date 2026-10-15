@@ -88,7 +88,7 @@ compileJava -> compileKotlin -> compileScala -> compileJava
 | --- | --- | --- |
 | `ItemMixin.java` | `net.minecraft.world.item.ItemStack` | 捕获物品被完整吃完/喝完的时刻，触发 `AlimentIngestion` 吸收逻辑 |
 | `PlayerMixin.java` | `net.minecraft.world.entity.player.Player` | 动态干预饱食度消耗与极端失水脱水惩罚 |
-| `GrindstoneInputSlotMixin.java` | `net.minecraft.world.inventory.GrindstoneMenu` 输入槽 | 解除原版砂轮只允许放入损坏/附魔物品的限制，允许放入树皮、岩盐、麻黄、黄连、黄柏与甘草 |
+| `GrindstoneInputSlotMixin.java` | `net.minecraft.world.inventory.GrindstoneMenu` 输入槽 | 解除原版砂轮只允许放入损坏/附魔物品的限制，允许放入树皮、碎岩盐、岩盐、麻黄、黄连、黄柏与甘草 |
 | `GrindstoneMenuMixin.java` | `net.minecraft.world.inventory.GrindstoneMenu` | 接入 `AlimentGrinding` 的研磨配方映射表，计算并输出研磨产物 |
 | `CameraMixin.java` (Client) | `net.minecraft.client.Camera` | 实现发冷/寒战时仅晃动镜头的衰减振荡体验，不干扰实际实体物理位置 |
 | `FogRendererMixin.java` (Client) | `net.minecraft.client.renderer.FogRenderer` | 曼陀罗中毒时将视野迷雾收缩至 8 格内 |

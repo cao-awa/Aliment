@@ -355,6 +355,21 @@ object ModelConstants {
   val IMMUNOSUPPRESSION_THRESHOLD: Float = 12f
   val IMMUNE_STORM_THRESHOLD: Float = 75f
 
+  /**
+   * Inflammation at which the immune system starts shaking the camera at all.
+   *
+   * This is the cytokine storm threshold itself: the tremor is a storm symptom and nothing less. An
+   * ordinary immune response is not supposed to be visible as a tremor, and neither is the
+   * build-up to a storm, so the immune term switches on in one step at the storm rather than
+   * ramping in over the ground below it. That also lines the shake chance up with
+   * `Physiology.shakeAmplitude`, whose storm term has always been gated exactly here.
+   *
+   * Still its own name rather than a bare use of [IMMUNE_STORM_THRESHOLD], because the two answer
+   * different questions - one is "is this a storm", the other "does the camera move" - and pinning
+   * the second to the first is a choice about the tremor rather than a property of the storm.
+   */
+  val IMMUNE_SHAKE_ONSET: Float = IMMUNE_STORM_THRESHOLD
+
   val MAX_PATHOGEN: Float = 100f
   val SYMPTOM_THRESHOLD: Float = 8f
   val IMMUNITY_ACTIVATION_LOAD: Float = 20f
@@ -375,6 +390,20 @@ object ModelConstants {
   val WATER_SEVERELY_DEHYDRATED: Float = 15f
   val THIRST_CELLS: Int = 10
   val WATER_PER_DRINK: Float = 15f
+
+  /**
+   * The water a serving of plant food carries: fruit, vegetables, seaweed, a bowl of broth.
+   *
+   * Small on purpose. It is not a drink and must not be mistaken for one - a player who wants water
+   * drinks, and this is the moisture that was in the food, roughly one fortieth of a glass. What it
+   * does is make a diet of fruit and vegetables hydrate *slightly* rather than not at all, which is
+   * the honest answer for food that is mostly water by weight.
+   *
+   * Anything that already carries water of its own - every drink, and the grapefruit slice, which is
+   * both a food and a drink and has its own figure in the ingestion table - is left alone rather than
+   * stacked with this.
+   */
+  val WATER_PER_PLANT_FOOD: Float = 0.4f
   /** Normal water loss: full water (100) is depleted in exactly 5 in-game days without sweating. */
   val WATER_DECAY_PER_TICK: Float = 100f / (5f * 24000f)
 
@@ -585,6 +614,19 @@ object ModelConstants {
   val VITAMIN_C_HALF_LIFE_TICKS: Int = 5 * 24000
   val VITAMIN_C_DECAY_RATE: Float = (Math.log(2.0) / (5.0 * 24000.0)).toFloat
 
+  /**
+   * The vitamin C every serving of plant food carries on top of whatever else it is worth.
+   *
+   * A supplement, not a replacement: whatever an item's own figure is, this is added to it, so a
+   * player who eats fruit and vegetables is never short of ascorbate however little each individual
+   * item is worth. That is the point - vitamin C is the one deficiency with no early warning, and
+   * the diet that supplies it should be the diet that is already the right one.
+   *
+   * Small next to the reference range (40 - 80 umol/L): a serving is a fraction of a day's need, so
+   * the store is topped up by eating regularly rather than restored by a single meal.
+   */
+  val VITAMIN_C_PER_PLANT_FOOD: Float = 5f
+
   // ---------------------------------------------------------------- blood glucose
 
   /**
@@ -605,13 +647,41 @@ object ModelConstants {
   val GLUCOSE_MAX: Float = 30f
 
   /**
-   * Where a fasted body levels off: from [GLUCOSE_NORMAL] to here takes exactly two in-game days
-   * (48,000 ticks), and past it the fall slows down because the body is running on its stores.
+   * Where a fasted body levels off: from [GLUCOSE_NORMAL] to here takes six in-game days (144,000
+   * ticks), and past it the fall slows down because the body is running on its stores.
    */
   val GLUCOSE_FASTING_FLOOR: Float = 3.5f
 
-  /** The flat drain that makes that two-day fall exact. 1.5 mmol/L over 48,000 ticks. */
-  val GLUCOSE_BASAL_DECAY_PER_TICK: Float = (GLUCOSE_NORMAL - GLUCOSE_FASTING_FLOOR) / (2f * 24000f)
+  /**
+   * The drain the model was originally calibrated around: 1.5 mmol/L over 48,000 ticks, or two
+   * in-game days from [GLUCOSE_NORMAL] down to [GLUCOSE_FASTING_FLOOR].
+   *
+   * Nothing burns it at this rate any more, and it is kept only as the yardstick the two live rates
+   * are written against - see [GLUCOSE_BASAL_DECAY_PER_TICK] and [GLUCOSE_EXCESS_DECAY_PER_TICK],
+   * which are deliberately expressed as a fraction and a multiple of it so the relationship between
+   * them survives a recalibration.
+   */
+  private val GLUCOSE_DECAY_YARDSTICK: Float = (GLUCOSE_NORMAL - GLUCOSE_FASTING_FLOOR) / (2f * 24000f)
+
+  /**
+   * The flat drain while blood glucose is inside the reference range: a third of
+   * [GLUCOSE_DECAY_YARDSTICK], so the two-day fall from normal to the fasting floor is now six days.
+   *
+   * Glucose is spent rather than regulated, so this is the rate a player lives at between meals, and
+   * it was slowed because meals could not keep up with it.
+   */
+  val GLUCOSE_BASAL_DECAY_PER_TICK: Float = GLUCOSE_DECAY_YARDSTICK / 3f
+
+  /**
+   * The drain once glucose is past the top of the reference range ([GLUCOSE_SAFE_HIGH]).
+   *
+   * Over the range the body stops hoarding and starts clearing, so the rate is no longer the slowed
+   * one: it is [GLUCOSE_DECAY_YARDSTICK] times 1.5, i.e. half again as fast as the model's *original*
+   * rate rather than half again as fast as the reduced one. That is what makes a spike cost something
+   * - a surplus is now shed faster than it was before this change, even though the normal band was
+   * made gentler - and it is what pulls an overshoot back down into the range.
+   */
+  val GLUCOSE_EXCESS_DECAY_PER_TICK: Float = GLUCOSE_DECAY_YARDSTICK * 1.5f
 
   /** Above this the pancreas is clearly responding: the insulin index climbs steeply from here. */
   val GLUCOSE_ELEVATED: Float = 8f
@@ -674,15 +744,22 @@ object ModelConstants {
   /**
    * What one serving of each kind of food adds to blood glucose, in mmol/L.
    *
-   * Bread is the worst of them and cooked meat the mildest of the animal foods; plant food and raw
-   * meat sit together in the middle. A single serving is never enough to reach
-   * [GLUCOSE_ELEVATED] on its own from a healthy 5.0, so it takes a real meal to provoke the
-   * insulin response.
+   * Bread is the worst of them and plant food the mildest; raw meat sits with the plants and cooked
+   * meat a step above it. A single serving is never enough to reach [GLUCOSE_ELEVATED] on its own
+   * from a healthy 5.0, so it takes a real meal to provoke the insulin response.
+   *
+   * **The three plain-food figures were halved from 0.4 / 0.4 / 0.5.** A body that ate normally was
+   * being walked into the insulin response by an ordinary meal of bread and vegetables rather than by
+   * anything it had done wrong, and the vegetables were carrying as much of the blame as the meat. The
+   * halving is deliberately one-sided: [GLUCOSE_PER_BREAD] is *not* halved, because refined starch
+   * really is the fast carbohydrate and the point of it is that it is worse than what grows in a
+   * field. Sweet drinks and assembled dishes keep their own figures too - see [GLUCOSE_PER_SWEET_DRINK]
+   * and [GLUCOSE_PER_MIXED_DISH].
    */
-  val GLUCOSE_PER_PLANT_FOOD: Float = 0.4f
+  val GLUCOSE_PER_PLANT_FOOD: Float = 0.2f
   val GLUCOSE_PER_BREAD: Float = 0.7f
-  val GLUCOSE_PER_RAW_MEAT: Float = 0.4f
-  val GLUCOSE_PER_COOKED_MEAT: Float = 0.5f
+  val GLUCOSE_PER_RAW_MEAT: Float = 0.2f
+  val GLUCOSE_PER_COOKED_MEAT: Float = 0.25f
 
   /**
    * A fruit drink that has had sugar stirred into it: grapefruit juice.

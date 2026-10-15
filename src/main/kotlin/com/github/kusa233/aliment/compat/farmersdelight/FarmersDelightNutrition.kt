@@ -52,13 +52,19 @@ object FarmersDelightNutrition {
     fun sodiumFor(item: Item): Float =
         if (loaded) FarmersDelightValues.sodiumFor(item) else 0f
 
-    /**
-     * Whether the item counts towards the water index: the drinks, and the dishes that arrive as a
+    /** Whether the item counts towards the water index: the drinks, and the dishes that arrive as a
      * bowl of liquid. Milk is on the list because it is a drink like any other, exactly as vanilla's
      * milk bucket is.
      */
     fun isDrink(item: Item): Boolean =
         loaded && FarmersDelightValues.isDrink(item)
+
+    /**
+     * Whether the item is plant food - a vegetable, a fruit or a salad - and so carries the small
+     * amount of water such food does. False without Farmer's Delight.
+     */
+    fun isPlantFood(item: Item): Boolean =
+        loaded && FarmersDelightValues.isPlantFood(item)
 
     /**
      * Whether swallowing it raw should roll for a bacterial infection.

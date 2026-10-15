@@ -64,6 +64,7 @@ object AlimentCreativeTabs {
         AlimentItems.WILLOW_BARK_SOUP_BOWL,
         // salt chain
         AlimentBlocks.ROCK_SALT_ORE,
+        AlimentItems.CRUSHED_ROCK_SALT,
         AlimentItems.CRUDE_SALT,
         AlimentItems.CRUDE_SALT_POWDER,
         AlimentItems.SALT_POWDER,
@@ -92,9 +93,10 @@ object AlimentCreativeTabs {
         // mandrake: the plant has no item form, so the tab carries the fruit and the seeds
         AlimentItems.MANDRAKE_FRUIT,
         AlimentItems.MANDRAKE_SEEDS,
-        // grapes: the fruit and the seeds, then the wine they ferment into
+        // grapes: the fruit and the seeds, then the juice and the wine they become
         AlimentItems.GRAPE,
         AlimentItems.GRAPE_SEEDS,
+        AlimentItems.GRAPE_JUICE,
         AlimentItems.GRAPE_WINE,
         // gymnopilus: raw and cooked, the second one only food
         AlimentItems.GYMNOPILUS,

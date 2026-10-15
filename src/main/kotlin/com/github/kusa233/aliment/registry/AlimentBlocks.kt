@@ -295,8 +295,9 @@ object AlimentBlocks {
     // ---------------------------------------------------------------- salt
 
     /**
-     * Rock salt ore. Grinding the ore itself (not a drop) yields nine crude salt, so it drops
-     * itself and is mined with a pickaxe.
+     * Rock salt ore. It breaks into [AlimentItems.CRUSHED_ROCK_SALT] rather than dropping itself,
+     * and it is still mined with a pickaxe. Grinding the ore still works and yields one shard, the
+     * same as grinding what it drops, so the block itself is the shortcut and the shard the haul.
      */
     val ROCK_SALT_ORE: Block = Registration.registerBlockWithItem(
         "rock_salt_ore",

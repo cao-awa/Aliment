@@ -128,7 +128,7 @@ object Physiology {
    * eaten is lost.
    *
    * The loss is a plain leak with nothing pulling the other way, sized so that a full store runs
-   * down to the hard floor in [IODINE_DEPLETION_TICKS] - 0.50 umol/L to 0.05 in exactly five
+   * down to the hard floor in [IODINE_DEPLETION_TICKS] - 0.50 umol/L to 0.05 in exactly fifteen
    * in-game days - and then stays there. A proportional controller towards normal is deliberately
    * *not* modelled: it is exactly what would stop the store from ever running out, and iodine is
    * meant to be a dietary need rather than a bonus, so a player who lives on bread ends up severely
@@ -137,10 +137,10 @@ object Physiology {
    * Sweating carries iodine off on top of the leak, which is what pushes an otherwise adequate diet
    * under the reference range during a long fever.
    *
-   * The leak is flat, so the five days is an exact figure rather than an approach, and a surplus is
-   * cleared by [IODINE_EXCESS_CLEARANCE] on top of it - see there for why only a surplus.
+   * The leak is flat, so the fifteen days is an exact figure rather than an approach, and a surplus
+   * is cleared by [IODINE_EXCESS_CLEARANCE] on top of it - see there for why only a surplus.
    */
-  private final val IODINE_DEPLETION_TICKS = 5 * 24000
+  private final val IODINE_DEPLETION_TICKS = 15 * 24000
   private final val IODINE_DRAIN_FRACTION =
     (MineralRanges.IODINE.normal - MineralRanges.IODINE.min) /
       IODINE_DEPLETION_TICKS / MineralRanges.IODINE.normal
@@ -153,10 +153,15 @@ object Physiology {
    * than a trace does - but only *slightly* faster here, because iodine is not one of the things the
    * body defends a level of. The term is deliberately written against the excess above normal rather
    * than against the whole value: a leak that scaled with the value itself would bend the depletion
-   * curve, and "five days from normal to the floor" is a figure the tests and the docs both state.
-   * Read this way, the five days stays exact and a surplus simply clears sooner.
+   * curve, and "fifteen days from normal to the floor" is a figure the tests and the docs both state.
+   * Read this way, the fifteen days stays exact and a surplus simply clears sooner.
+   *
+   * A surplus clears three times as fast as it first did. The ordinary leak was slowed to a third for
+   * the same reason, so the two changes pull in opposite directions on purpose: a body that is merely
+   * getting by keeps its iodine for far longer, while one carrying far too much gets rid of it
+   * quickly, and the band between those two is where the value settles.
    */
-  private final val IODINE_EXCESS_CLEARANCE = 0.000002f
+  private final val IODINE_EXCESS_CLEARANCE = 0.000006f
 
   // ------------------------------------------------------------------ temperature
 
@@ -428,8 +433,31 @@ object Physiology {
   /** No state, however bad, shakes the camera more often than this. */
   private final val MAX_SHAKE_CHANCE = 0.85f
   private final val SHAKE_CHANCE = 0.2f
-  private final val STORM_SHAKE_CHANCE_MULTIPLIER = 2f
   private final val THERMAL_SHAKE_CHANCE = 0.15f
+
+  /**
+   * The most the immune system's own contribution can add to the shake chance, all of it at
+   * [ModelConstants.IMMUNE_SHAKE_ONSET] and above.
+   *
+   * This is the old storm's doubling of the symptom term, kept as an *addition* rather than a
+   * multiplier: a storm used to double a symptomatic body's 0.2 to 0.4, and the immune term now
+   * supplies that same +0.2 the moment the storm is reached. So a storm shakes exactly as often as
+   * it always did, and a body below it never shakes from inflammation at all.
+   */
+  private final val IMMUNE_SHAKE_CHANCE = 0.2f
+
+  /**
+   * How much of the immune system's tremor this inflammation earns: `0` below the onset, `1` at it.
+   *
+   * The onset *is* the storm threshold, so there is no ground to ramp across and this is a step. An
+   * ordinary immune response is not supposed to be visible as a tremor, and neither is the approach
+   * to a storm - the camera moving is reserved for the storm itself, which is the same point at
+   * which [shakeAmplitude] starts adding its own storm term. Below it the only thing that can shake
+   * the view is the infection's own symptom load, so a mild cold the player is fighting off does not
+   * move the camera at all.
+   */
+  private def immuneShakeFactor(inflammation: Float): Float =
+    if (inflammation >= ModelConstants.IMMUNE_SHAKE_ONSET) 1f else 0f
 
   /**
    * Chance that one shake roll actually shakes the camera, `0..MAX_SHAKE_CHANCE`.
@@ -437,13 +465,15 @@ object Physiology {
    * Every term has to come from something the player can notice, and every source that can produce a
    * tremor also puts an effect icon on the screen - otherwise the player has no way of telling why
    * their view is moving. That is why over-hydration only counts once it is past the point where the
-   * nausea icon appears, and why 38 degrees does not count at all.
+   * nausea icon appears, and why 38 degrees does not count at all. The immune system's own term is
+   * only reachable at an inflammation high enough to come with a fever, which is what puts an icon
+   * up for it.
    */
   def shakeChance(state: ModelState): Float = {
     val load = pathogenLoad(state.bacteria, state.virus)
     val tier = thermalTier(state.temperature)
     var chance = if (isSymptomatic(load)) SHAKE_CHANCE else 0f
-    if (isImmuneStorm(state.mediators.getInflammation)) chance *= STORM_SHAKE_CHANCE_MULTIPLIER
+    chance += IMMUNE_SHAKE_CHANCE * immuneShakeFactor(state.mediators.getInflammation)
     if (state.water > ModelConstants.WATER_VISIBLY_OVERHYDRATED) chance += 0.1f
     if (state.electrolytes.magnesium < MineralRanges.MAGNESIUM.safeLow) chance += 0.15f
     if (state.electrolytes.calcium < MineralRanges.CALCIUM.severeLow) chance += 0.2f
@@ -453,6 +483,29 @@ object Physiology {
     chance += THERMAL_SHAKE_CHANCE * Math.abs(tier)
     if (chance > MAX_SHAKE_CHANCE) MAX_SHAKE_CHANCE else chance
   }
+
+  /**
+   * How far the camera swings on a shake that has already triggered, in degrees at its peak.
+   *
+   * The magnitude of the tremor, as opposed to [shakeChance] which decides whether there is one at
+   * all. It is deliberately gentle: the tremor is meant to read as being unwell rather than to make
+   * the game hard to play, so even a severe infection with a storm and a fever behind it stays well
+   * inside the range a player can aim through. Half of what it once was, for the same reason.
+   */
+  def shakeAmplitude(state: ModelState): Float = {
+    val load = pathogenLoad(state.bacteria, state.virus)
+    var amplitude = SHAKE_AMPLITUDE_BASE + SHAKE_AMPLITUDE_PER_SEVERITY * severity(load)
+    if (isImmuneStorm(state.mediators.getInflammation)) amplitude += SHAKE_AMPLITUDE_STORM
+    if (state.electrolytes.calcium < MineralRanges.CALCIUM.severeLow) amplitude += SHAKE_AMPLITUDE_CALCIUM
+    if (hasThermalStress(state.temperature)) amplitude += SHAKE_AMPLITUDE_THERMAL
+    amplitude
+  }
+
+  private final val SHAKE_AMPLITUDE_BASE = 0.3f
+  private final val SHAKE_AMPLITUDE_PER_SEVERITY = 0.4f
+  private final val SHAKE_AMPLITUDE_STORM = 0.3f
+  private final val SHAKE_AMPLITUDE_CALCIUM = 0.2f
+  private final val SHAKE_AMPLITUDE_THERMAL = 0.2f
 
   /** Extra food exhaustion while the body is unwell; a multiplier, so 1 is "nothing wrong". */
   def exhaustionMultiplier(state: ModelState): Float = {
@@ -530,9 +583,11 @@ object Physiology {
    *
    * Three terms, and they are separate because they behave differently:
    *
-   *  - the **basal drain**, a flat 1.5 mmol/L over two in-game days, which is the fasting path from
+   *  - the **basal drain**, a flat 1.5 mmol/L over *six* in-game days, which is the fasting path from
    *    5.0 down to 3.5. Past 3.5 it scales with what is left, so the fall slows down instead of
-   *    running straight to zero;
+   *    running straight to zero. Above the top of the reference range the *excess* rate takes over
+   *    instead, which is faster than the model's original two-day drain, so a spike is shed briskly
+   *    until the value is back inside the range;
    *  - the body's **own insulin**, which disposes of a glucose load and is switched off at the
    *    bottom of the reference range - the pancreas does not drive a body hypoglycaemic on its own;
    *  - **injected insulin aspart**, which has no such brake, which is exactly why an overdose is
@@ -550,7 +605,8 @@ object Physiology {
     val injected = ModelConstants.GLUCOSE_UPTAKE_PER_INSULIN_ASPART * insulinAspart
 
     val basal =
-      if (glucose > ModelConstants.GLUCOSE_FASTING_FLOOR) ModelConstants.GLUCOSE_BASAL_DECAY_PER_TICK
+      if (glucose > ModelConstants.GLUCOSE_SAFE_HIGH) ModelConstants.GLUCOSE_EXCESS_DECAY_PER_TICK
+      else if (glucose > ModelConstants.GLUCOSE_FASTING_FLOOR) ModelConstants.GLUCOSE_BASAL_DECAY_PER_TICK
       else ModelConstants.GLUCOSE_BASAL_DECAY_PER_TICK * (glucose / ModelConstants.GLUCOSE_FASTING_FLOOR)
 
     clamp(

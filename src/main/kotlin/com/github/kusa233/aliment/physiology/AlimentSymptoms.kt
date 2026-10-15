@@ -474,9 +474,18 @@ object AlimentSymptoms {
      *
      * The probability is the model's, in Scala, reached through `AlimentModelBridge`; this only
      * hands it the body. Every term there has to come from something the player can notice, which is
-     * why a fever below 38.5 and over-hydration behind a full thirst bar do not count.
+     * why a fever below 38.5 and over-hydration behind a full thirst bar do not count, and why the
+     * immune system's own contribution only starts at an inflammation of 40.
      */
     fun shakeChance(data: AlimentData): Float = AlimentModelBridge.shakeChance(data)
+
+    /**
+     * How far a triggered shake swings the camera, in degrees at its peak.
+     *
+     * Also the model's, and also only handed the body - the magnitude is a physiological figure like
+     * any other, so it lives in Scala with the rest of them rather than being assembled here.
+     */
+    fun shakeAmplitude(data: AlimentData): Float = AlimentModelBridge.shakeAmplitude(data)
 
     /**
      * Rolls for the camera shake. Low magnesium and calcium both make the tremor more likely,
@@ -494,11 +503,7 @@ object AlimentSymptoms {
             return
         }
 
-        val amplitude = 0.6f + 0.8f * data.severity +
-            (if (data.isImmuneStorm) 0.6f else 0f) +
-            (if (data.electrolytes.calcium < Mineral.CALCIUM.severeLow) 0.4f else 0f) +
-            (if (data.hasThermalStress) 0.4f else 0f)
-        pushShake(player, amplitude)
+        pushShake(player, shakeAmplitude(data))
     }
 
     /** Bumps the synced shake counter, which is what the client watches. */

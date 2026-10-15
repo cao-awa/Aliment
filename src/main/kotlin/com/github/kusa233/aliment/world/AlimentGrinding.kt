@@ -18,7 +18,8 @@ object AlimentGrinding {
     /** One input item to (output item, how many it yields). */
     val RECIPES: Map<Item, Pair<Item, Int>> = mapOf(
         AlimentItems.WILLOW_BARK to (AlimentItems.WILLOW_BARK_PIECES to 2),
-        AlimentBlocks.ROCK_SALT_ORE.asItem() to (AlimentItems.CRUDE_SALT to 9),
+        AlimentBlocks.ROCK_SALT_ORE.asItem() to (AlimentItems.CRUSHED_ROCK_SALT to 1),
+        AlimentItems.CRUSHED_ROCK_SALT to (AlimentItems.CRUDE_SALT to 9),
         AlimentItems.CRUDE_SALT to (AlimentItems.CRUDE_SALT_POWDER to 1),
         AlimentItems.EPHEDRA to (AlimentItems.CRUSHED_EPHEDRA to 1),
         AlimentItems.COPTIS to (AlimentItems.CRUSHED_COPTIS to 1),

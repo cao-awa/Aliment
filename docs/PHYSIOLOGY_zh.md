@@ -100,13 +100,14 @@ val restingInflammation = 0.15 * 25.0 + 0.20 * 30.0 + 0.15 * 30.0 + 0.35 * 20.0 
 | 海带卷 `farmersdelight:kelp_roll` | **+0.15 µmol/L** | *农夫乐事。* 三片干海带裹一碗米饭；米饭是主体，所以按「含海带的菜」计，而不是按三片干海带计 |
 | 海带卷切片 `farmersdelight:kelp_roll_slice` | **+0.05 µmol/L** | *农夫乐事。* 一卷的三分之一，正是砧板切出来的份量 |
 
-不吃含碘食物时碘每天固定流失 0.09 µmol/L，**五天整掉光**（0.50 → 下限 0.05），然后停在下限：
-* **每日维持需求**：人体每天自然流失 0.09 µmol/L 碘，若发烧出汗流失进一步加速；
+不吃含碘食物时碘每天固定流失 0.03 µmol/L，**十五天整掉光**（0.50 → 下限 0.05），然后停在下限：
+* **每日维持需求**：人体每天自然流失 0.03 µmol/L 碘，若发烧出汗流失进一步加速；超出正常值的部分
+  排得比过去快三倍，所以尽管日常流失温和了许多，一次过量仍然收得很快。
 * **摄入策略**：
-  * **日常维持**：每天 2 份干海带（各 +0.10）或 2 份海藻（各 +0.10）刚好抵住全天的自然流失，单独一份不够；
+  * **日常维持**：现在一份干海带或一份海藻（各 +0.10）就够抵住三天以上的自然流失，而改动之前要每天两份才守得住参考区间；
   * **高效抗甲减**：熟海藻（+0.125）补充效率高，四份就能把濒临枯竭的储备拉回大半；
   * **便携远征补给**：海藻碘盐（+0.20）一次性补充较多碘储备，且额外提供电解质钠与氯（各 +1.5 mmol/L），兼顾大量饮水后稀释性低钠血症的预防。
-吃多了会越过上限 0.80，而多出来的部分会因为**自身浓度偏高而排得更快一点**（每天多排的速率正比于
+吃多了会越过上限 0.80，而多出来的部分会因为**自身浓度偏高而排得更快**（每天多排的速率正比于
 超出正常值的部分），所以不会长期堆积。
 
 参考下限**刻意比临床参考范围更低**：症状从 **0.25** 才开始出现，而不是 0.40。甲状腺是滞后的响应者，
@@ -132,6 +133,9 @@ val restingInflammation = 0.15 * 25.0 + 0.20 * 30.0 + 0.15 * 30.0 + 0.35 * 20.0 
   - **轻度缺乏（< 40.0 µmol/L，早期维生素C缺乏）**：获得 **挖掘疲劳 I（Mining Fatigue I）** 负面效果；
   - **严重缺乏（< 15.0 µmol/L，坏血病期）**：叠加获得 **虚弱 I（Weakness I）** 效果（即同时受到 **挖掘疲劳 I + 虚弱 I**）；
   - **过量（> 80.0 µmol/L）**：水溶性维生素通过肾脏快速无害排出，不产生负面病理反应。
+  - **每一种植物性食物都在自身数值之上再补 +5.0 µmol/L**，所以水果蔬菜的食谱无论单件多低都不会
+    缺乏。本身没有数值的土豆，拿到的正好就是这份补充。它是**加法而不是替换**：苹果自己的 12 会变成 17。
+
 * **膳食食物来源（水果、胡萝卜、南瓜及植物食材）**：
 
 | 食物 | 维生素C 补充量 |
@@ -150,6 +154,10 @@ val restingInflammation = 0.15 * 25.0 + 0.20 * 30.0 + 0.15 * 30.0 + 0.35 * 20.0 
 | 海藻 `aliment:seaweed` | **+5.0 µmol/L** |
 | 熟海藻 `aliment:cooked_seaweed` | **+3.0 µmol/L** |
 | 葡萄柚片 `aliment:grapefruit_slice` | **+10.0 µmol/L**——植物性食物，又是柑橘，所以和胡萝卜一样 |
+| 土豆 `minecraft:potato` 等没有自身数值的植物 | **+0**，只拿上面那份 +5.0 的补充 |
+
+上表是每件食物**自己记录**的数值；实际进账要再加植物补充的 **+5.0**，所以苹果是 17、胡萝卜是 15、
+土豆是 5。
 
 **农夫乐事的植物按同一把尺子补维生素 C。** 蔬菜就是蔬菜，无论出自哪里，所以番茄等于胡萝卜（**+10.0**），
 卷心菜 **+8.0**，洋葱 **+6.0**，番茄酱 **+8.0**。拼装的菜肴只拿到用料给它的那一份，不多不少——这正是
@@ -343,12 +351,13 @@ val visualBlurActive = scopolamine >= 2.3f || atropine >= 2.3f || alkaloidSum >=
 | --- | --- | --- | --- |
 | 生肉（牛猪鸡羊兔鳕鲑热带鱼）、腐肉、毒马铃薯 | 细菌 | **30%** | +6 |
 | 生柳树皮汤（含带盐版） | 细菌 | **30%** | +6 |
-| **任何生物**走到 2 格以内 | 病毒 | **5% / 秒** | +5 |
+| **任何生物**走到 2 格以内 | 病毒 | **1% / 秒** | +5 |
 | **免疫抑制时**（炎症 ≤ 12）凭空 | 细菌 | **15% / 秒** | **随机 +4 ~ +12** |
 
 * 食物走 `Item.finishUsingItem`（见下面的 mixin），所以是"真正咽下去的那一刻"判定。
 * 接触判定看的是**任何 `Mob`**——牛、狼、村民、蝙蝠都算，盔甲架不算（它不是 `Mob`）。
-  每秒掷一次，所以在一群牛里站十秒，几乎必然中招。
+  每秒掷一次，所以站着不动仍然会中招，只是慢得多：一只被动生物贴着玩家站满一分钟，也只有大约
+  45% 的概率传染。
 * **免疫抑制是唯一一条不需要外因的路**：炎症被压到 12 以下是免疫抑制，身体自己的菌群
   就能进来，掷骰间隔同样是一秒。这也让"地塞米松打多了"和"柳树皮汤喝太多"真的危险。
 
@@ -612,21 +621,22 @@ electrolyte += restorationRate - totalLossRate
 
 ```scala
 val excess = Math.max(iodine - 0.50f, 0f)
-val iodineLoss = (drainFraction + flush * EXCRETION_IODINE) * 0.50f + excess * 0.000002f
+val iodineLoss = (drainFraction + flush * EXCRETION_IODINE) * 0.50f + excess * 0.000006f
 ```
 
-流失在**数值不高于正常值时是恒定的**，所以「从 0.50 到 0.05 下限正好五天」仍然是一个精确值；只有
-**过量**的部分才会排得更快一点——这让超量的碘更快排掉，同时不弯曲测试与本文档都写明的那条耗尽曲线。
+流失在**数值不高于正常值时是恒定的**，所以「从 0.50 到 0.05 下限正好十五天」仍然是一个精确值；只有
+**过量**的部分才会排得更快。日常流失被砍到三分之一（五天 → 十五天），而过量清除被提到三倍，两个
+改动故意朝相反方向拉：只是勉强维持的身体能把碘留得久得多，而带了一大堆多余碘的身体会很快清掉。
 
 ### 碘与维生素C
 
 碘代谢方程（无自体回补，持续单向消耗）：
 
 ```scala
-// 碘：正常值及以下每天固定损耗 0.09 µmol/L（整 5 游戏日从 0.50 耗空至下限 0.05），
-// 出汗与多尿额外带走；超出正常值的部分按自身浓度再快一点排出（每天约 0.000002 * 超出量 / tick）
+// 碘：正常值及以下每天固定损耗 0.03 µmol/L（整 15 游戏日从 0.50 耗空至下限 0.05），
+// 出汗与多尿额外带走；超出正常值的部分按自身浓度再快得多地排出（每天约 0.000006 * 超出量 / tick）
 val excess = Math.max(iodine - 0.50f, 0f)
-val iodineLossRate = (0.45f / 120000f) + (flushFraction + sweatFraction) * 0.35f + excess * 0.000002f
+val iodineLossRate = (0.45f / 360000f) + (flushFraction + sweatFraction) * 0.35f + excess * 0.000006f
 iodine = Math.max(iodine - iodineLossRate, 0.05f)
 
 // 维生素C：一级动力学代谢，半衰期 5 游戏日（120,000 ticks）
@@ -759,7 +769,11 @@ temperature += (targetTemperature - temperature) * 0.0004f
 **镜头抖动只有在玩家能看到别的问题时才可能出现。** 这是修掉那个
 "体征正常、视角还在晃"的 bug 后立下的规则：抖动的每一个来源都必须同时给一个
 **效果图标**（虚弱 / 反胃 / 饥饿……），否则玩家没有线索知道自己在晃什么。
-38 度以下、以及只到"口渴条满"程度的过水，都不再满足这个条件。
+38 度以下、只到"口渴条满"程度的过水，以及炎症低于 75，都不再满足这个条件。
+
+免疫系统自己那一份是**挂在风暴阈值 75 上的**，一次性给满，满值恰好等于过去"风暴期间把感染项
+翻倍"的那份加成。所以风暴时的抖动频率和以前一模一样，而 75 以下干脆完全不抖——这一项和风暴那份
+更大的抖动幅度现在从同一个点开始。
 
 画面效果不是 HUD 贴图，而是**原版后处理链**（`assets/aliment/post_effect/*.json` +
 `assets/aliment/shaders/post/*.fsh`）：只在画面**边缘**（`smoothstep(0.45, 1.0, ...)`）
@@ -803,13 +817,28 @@ temperature += (targetTemperature - temperature) * 0.0004f
 | --- | --- | --- |
 | 淀粉、糖与面包 | **+0.7** | `minecraft:bread`、甜饮、一碗米饭 |
 | 混合菜 | **+0.6** | 拼装出来的一盘：炖菜、三明治、意面 |
-| 熟肉与熟鱼 | **+0.5** | 熟牛肉、熟猪排、熟鸡、熟羊、熟兔、熟鳕鱼、熟鲑鱼 |
-| 生肉与生鱼 | **+0.4** | 牛肉、猪排、鸡、羊、兔、鳕鱼、鲑鱼、热带鱼、腐肉 |
-| 植物性食物 | **+0.4** | 水果、蔬菜、海带、海藻、蘑菇、每一种柳树皮汤 |
+| 熟肉与熟鱼 | **+0.25** | 熟牛肉、熟猪排、熟鸡、熟羊、熟兔、熟鳕鱼、熟鲑鱼 |
+| 生肉与生鱼 | **+0.2** | 牛肉、猪排、鸡、羊、兔、鳕鱼、鲑鱼、热带鱼、腐肉 |
+| 植物性食物 | **+0.2** | 水果、蔬菜、海带、海藻、蘑菇、每一种柳树皮汤 |
 
 面包是唯一一种从正常的 5.0 出发、自己就能把血糖推出参考范围的食物（5.0 + 0.7 = 5.7），
 这就是它被从其余植物性食物里单独拎出来的原因。所有能吃的、不是肉也不是面包的东西都算植物性食物，
 所以玩家没法靠天天吃浆果来躲开进食的血糖代价。
+
+**这三档「普通食物」的数值被减半了，而面包故意没动。** 原来是 0.4 / 0.4 / 0.5；一顿面包加蔬菜的
+普通饭就能把一个身体推进胰岛素反应，问题不出在玩家做错了什么，而且当时一根胡萝卜和一块牛排被算了
+一样的账。面包保住它的 0.7，因为精制淀粉确实就是快吸收碳水，「它比地里长出来的东西更糟」正是这一档
+存在的意义——所以这次减半是**单向**的。甜饮（0.7）与混合菜（0.6）同样保留各自的值，理由一样：
+这两者衡量的是食物**被怎么处理过**，而不是它长出来是什么。
+
+**注意血糖值已经不再能分辨食物的种类了。** 植物性食物与生肉现在都值 0.2，所以任何需要区分两者的
+地方——比如下面的水——都必须去问分类，而不是比数值。
+
+**植物性食物带着它本身所含的水：每份 +0.4。** 这不是饮料，也替代不了饮料：它是一杯的四十分之一，
+而一杯饮料值 15。它买到的是：靠水果蔬菜过日子的玩家不再是在一边吃饭一边慢慢脱水，毕竟这些食物
+按重量算大部分就是水。它只加在还没有被别的东西补过水的物品上——每一种饮料刚刚拿过它那一杯，
+而葡萄柚切片既是食物又是饮料、保留自己的 5——所以没有任何东西会被算两遍。农夫乐事的蔬菜、沙拉与
+水果走同一条规则；它的汤是饮料、拼盘是正餐，两者都不吃这份植物水量。
 
 **「混合菜」这一档是为拼装食物设的。** 一盘同时由淀粉、肉与蔬菜拼成的东西——炖菜、三明治、意面——
 按 **+0.6** 计，介于植物性食物与面包之间，因为其中的肉与脂肪会拖慢淀粉。按面包计会让每一顿熟食都变成
@@ -821,11 +850,14 @@ temperature += (targetTemperature - temperature) * 0.0004f
 有三个项在推动血糖，它们之所以分开写，是因为行为各不相同：
 
 ```scala
-// 1. 基础消耗：两个游戏日固定掉 1.5 mmol/L，也就是空腹时从 5.0 走到 3.5 的那条路。
-//    过了 3.5 之后它按剩下的量缩放，所以下降是减速的，而不是一路直冲到零。
+// 1. 基础消耗：**六个**游戏日固定掉 1.5 mmol/L，也就是空腹时从 5.0 走到 3.5 的那条路。
+//    过了 3.5 之后它按剩下的量缩放，所以下降是减速的，而不是一路直冲到零。越过参考上限 5.5
+//    之后改由过量档接管：它是**原来**两天速率的 1.5 倍，所以冲高比过去清得更快。
+val yardstick = 1.5f / 48000f                 // 3.125e-5 / tick，原来的速率
 val basal =
-  if (glucose > 3.5f) 1.5f / 48000f          // 3.125e-5 / tick
-  else (1.5f / 48000f) * (glucose / 3.5f)
+  if (glucose > 5.5f) yardstick * 1.5f        // 4.6875e-5 / tick——过量被快速清掉
+  else if (glucose > 3.5f) yardstick / 3f     // 1.0417e-5 / tick——六天而不是两天
+  else (yardstick / 3f) * (glucose / 3.5f)
 
 // 2. 身体自己的胰岛素。它在参考范围底部是关掉的：胰腺不会自己把身体推向低血糖。
 val endogenousDrive = 0.0001f * Math.max(0f, insulin - 1.0f)
@@ -861,16 +893,17 @@ insulin = clamp(insulin + (target - insulin) * 0.0005f, 0f, 60f)
 
 | 场景 | 结果 |
 | --- | --- |
-| 从 5.0 开始空腹 | 正好 2 个游戏日（48,000 ticks）后到 **3.49** |
-| 从 3.5 开始空腹 | 接下来 2 天只花掉 **1.22**，而不是 1.5——下降在减速 |
-| 一顿 8.0 的饭 | 半个游戏日内回到 **4.87** |
-| 一顿 10.0 的饭 | 半个游戏日内回到 **4.77** |
-| 一顿 20.0 的饭 | 半个游戏日内回到 **3.90** |
-| 一顿 30.0 的饭 | 半个游戏日内回到 **3.85** |
+| 从 5.0 开始空腹 | 正好 6 个游戏日（144,000 ticks）后到 **3.49** |
+| 从 3.5 开始空腹 | 接下来 2 天只花掉 **0.46**，而不是 1.5——下降在减速 |
+| 一次 10.0 的过量 | 比正常区间快 4.5 倍清掉，四天内回到 5.5 以下 |
+| 一顿 9.0 的饭 | 半个游戏日内回到 **4.90** |
+| 一顿 10.0 的饭 | 半个游戏日内回到 **4.83** |
+| 一顿 20.0 的饭 | 半个游戏日内回到 **3.97** |
+| 一顿 30.0 的饭 | 半个游戏日内回到 **3.95** |
 | 2,400 tick 之后 | 20 比 9 掉得更多，曲线上的每一点都如此 |
-| 打一针门冬胰岛素 | 5.0 -> **2.74**：只是下探，还没崩 |
-| 打两针 | 低血糖崩溃，因为没有任何东西会把注射的胰岛素关掉 |
-| 八个游戏日不进食 | **0.97** mmol/L：低血糖危机 |
+| 一针门冬胰岛素 | 5.0 → **3.16**：是一个凹坑，还没到危机 |
+| 两针 | 低血糖危机，因为没有任何东西会关掉注射进来的胰岛素 |
+| 十八个游戏日不进食 | **1.48** mmol/L：一场低血糖危机 |
 
 ### 门冬胰岛素 `insulinAspart`
 
@@ -1035,15 +1068,15 @@ fun isFrozen(player: Player): Boolean =
 ## 盐业链
 
 ```
-岩盐矿 ──砂轮──> 粗盐 ×9 ──砂轮──> 粗盐粉
-                                      │
-                                      ├─ 右键水炼药锅 ──> 粗盐水炼药锅
-                                      │        │
-                                      │   下方篝火/灵魂篝火
-                                      │        │  30 秒后每 30 秒浓缩一级
-                                      │        ▼
-                                      │   完全烧干 ──> 掉落 盐粉 ×1（炼药锅变空）
-                                      │
+岩盐矿 ──挖掘──> 碎岩盐 ×1 ──砂轮──> 粗盐 ×9 ──砂轮──> 粗盐粉
+                                         │
+                                         ├─ 右键水炼药锅 ──> 粗盐水炼药锅
+                                         │        │
+                                         │   下方篝火/灵魂篝火
+                                         │        │  30 秒后每 30 秒浓缩一级
+                                         │        ▼
+                                         │   完全烧干 ──> 掉落 盐粉 ×1（炼药锅变空）
+                                         │
 粗盐 + 水/蘑菇煲/柳树皮汤/生柳树皮汤 ──> 粗盐水 / 粗盐蘑菇煲 / 粗盐柳树皮汤 / 粗盐生柳树皮汤
 盐粉 + 水/蘑菇煲/柳树皮汤/生柳树皮汤 ──> 盐水   / 盐蘑菇煲   / 盐柳树皮汤   / 盐生柳树皮汤
 ```
@@ -1052,17 +1085,19 @@ fun isFrozen(player: Player): Boolean =
   合成方式：**上下各一根木棍**。
 * 粗盐水炼药锅有 3 个阶段（`stage` 0/1/2），对应 3 张贴图（越来越咸、越来越干）。
 * 火被移走时蒸发**暂停**，重新点上会继续。
-* 岩盐矿是**掉落自身**的（因为砂轮磨的是矿石方块本身），需要石镐，
-  在 y=20–90 之间以 6 次/区块的频率生成。
+* 岩盐矿**掉落碎岩盐 ×1**（不再掉落自身），需要石镐，
+  在 y=20–90 之间以 6 次/区块的频率生成。矿石方块本身仍然有物品形态，所以依旧可以放置、
+  也可以在砂轮里一步磨成碎岩盐。
 
 ### 砂轮
 
-砂轮的**输入槽被 mixin 拓宽**了，所以粗盐、岩盐矿、柳树皮可以直接放进原版砂轮界面：
+砂轮的**输入槽被 mixin 拓宽**了，所以粗盐、碎岩盐、岩盐矿、柳树皮可以直接放进原版砂轮界面：
 
 | 放入 | 产出 |
 | --- | --- |
 | 柳树树皮 ×1 | 柳树皮碎片 ×2 |
-| 岩盐矿 ×1 | 粗盐 ×9 |
+| 岩盐矿 ×1 | 碎岩盐 ×1 |
+| 碎岩盐 ×1 | 粗盐 ×9 |
 | 粗盐 ×1 | 粗盐粉 ×1 |
 
 每次**只收一个**（结果槽取走时会清空输入槽，放整堆会被吞掉，所以槽位直接拒绝堆叠）。
@@ -1121,7 +1156,7 @@ fun isFrozen(player: Player): Boolean =
 
 `src/main/kotlin/.../dev/AlimentPhysiologySelfTest.kt`（**默认不启用**，把它加进
 `fabric.mod.json` 的 `main` 入口点再 `gradle runServer` 就会在开服后 40 tick 自动跑完）
-跑出 **686/686 全过**：
+跑出 **875/875 全过**：
 
 ```
 homeostasis 3 days (one day's kelp a day): inflammation 25.0..25.0
@@ -1137,10 +1172,10 @@ resting mediators are the model's fixed point (25.0 == 25.0)
 thirst after one game day: water 10.47 -> 1 cell
 over-hydration: water loss 0.0060/tick vs 0.0037 normal
 two days of heavy drinking (mmol/L): Na 117.1  K 3.72  Mg 0.79  Cl 84.5  Ca 2.20
-iodine: after 1.5 days 0.275, after 3 days 0.05 (the floor); one kelp from empty 0.15
-  four days of a day's kelp: one a day 0.299 (deficient), two a day 0.699 (in range)
-  three helpings from normal: 0.95 (excess), and six days later back to the floor
-  half a day of fever drains it faster: at 37 0.425, at 41 0.391
+iodine: after 7.5 days 0.275, after 15 days 0.05 (the floor); one kelp from empty 0.10
+  eight days of a day's kelp: one a day 0.578 (in range)
+  three helpings from normal: 0.95 (excess), and inside 26 days back to the floor
+  half a day of fever drains it faster: at 37 0.485, at 41 0.451
 thyroid: iodine 0.36 -> 36.79 resting / iodine 0.79 -> 37.17
 a healthy player holds exactly 37.0 for a whole game day
 ambient: temperate 37.0 | snowy 36.4 | snowy+wet 33.9 | powder snow 30.0 | desert 37.4 | lava 41.0
@@ -1149,13 +1184,15 @@ untreated infection fever: peak 40.13 ; with salicin on board: 37.0
 /aliment fever 39.5 -> peak 39.53, 18439 ticks (15 min) in the fever band
 /aliment fever 40.5 -> peak 40.53 ; /aliment fever 34 -> lowest 33.97
 shake chance: healthy 0.00 | 38.0 C 0.00 | 38.5 C 0.15 | 40.0 C 0.30 | water 149 0.00 | water 151 0.10
+  inflammation: baseline 0.00 | 40 0.00 | 60 0.00 | 74.9 0.00 | 75 0.20 (the storm) | 80 0.20
+  a symptomatic body at the storm is 0.40, exactly the old doubling of the 0.20 symptom term
 hottest a healthy body reaches (desert + hot thyroid): 37.40, tier 0, nothing on screen
 screen effects: 38.0 none | 39.0 haze | 40.5 haze + blur | dropping to 39.0 clears only the blur
 translations: [en_us, zh_cn] languages, missing item names [] missing entity names []
   -> every Aliment item and entity is named, and the standing sign takes block.aliment.willow_sign
 every mineral probed on both sides of both of its thresholds (36 cases) + the 14 named rows
 sepsis damage per two-second pass: load 60 -> 1.0  load 100 -> 2.0  (59 -> 0)
-contact dice: 20/400 came up (5%) ; the roll arms a one second cooldown and nothing nearby is safe
+contact dice: 3/400 came up (1%) ; the roll arms a one second cooldown and nothing nearby is safe
 immunosuppression: 47/400 seeded bacteria (15%), 47 distinct loads, all inside +4..+12
 one serving of salt water: Na 143.5 (inside 135..145) ; two servings: 147.0 (past it)
 one bottle of sea water: water 95, sodium 143.0, magnesium 0.90
@@ -1182,16 +1219,19 @@ gymnopilus: one raw mushroom 1.3/1.3; half a day later psilocybin 0.65 psilocin 
 naringin: cap 10; cyp3a4 85 at 2 | 60 past 2 | 45 past 4 | 25 past 7 | 10 at 8.5
           a full body of naringin clears in one game day; the enzyme is back to 85 once it has
           coptis (1.1 berberine) cleared in 9429 ticks alone, 17827 with a body full of grapefruit
-grapefruit slice: 2 hunger / 3 saturation; +5 water +1 naringin +10 vitamin C; always edible
+grapefruit slice: 2 hunger / 3 saturation; +5 water +1 naringin +10 vitamin C (15 with the plant
+          supplement); always edible
           eleven slices still leave the body at the naringin cap, and the next tick puts the enzyme at 10
           milk adds 15 water
-glucose: fasting 5.0 -> 3.49 in two game days; 0.97 after eight
-          a meal of 8 / 10 / 20 / 30 is home within half a day, and a 20 falls further than a 9
-          insulin 1.0 fasting; one injection 5.0 -> 2.74, two are a hypoglycaemic crash
-          bread 0.7 | cooked meat 0.5 | raw meat 0.4 | plant food 0.4 per item
+glucose: fasting 5.0 -> 3.49 in six game days; 1.48 after eighteen
+          a surplus is shed 4.5x the in-range rate, and a 10.0 load is back under 5.5 in four days
+          a meal of 6 / 9 / 10 / 20 / 30 is home within half a day, and a 20 falls further than a 9
+          insulin 1.0 fasting; one injection 5.0 -> 3.16, two are a hypoglycaemic crash
+          bread 0.7 | cooked meat 0.25 | raw meat 0.2 | plant food 0.2 per item
+          a potato has no figure of its own, so it adds exactly the plant supplement's 5: 30 -> 35
           the meter prints 6.4 from the strip and never the body's 9.9; a dry finger refuses a strip
           a bloodied strip keeps its reading after the player's glucose changes
-PHYSIOLOGY SELFTEST DONE passed=686 failed=0
+PHYSIOLOGY SELFTEST DONE passed=875 failed=0
 ```
 
 覆盖了**纯模型**、**mixin 端到端**（真的调 `ItemStack.finishUsingItem` 吃生肉 / 喝汤 / 喝海水，

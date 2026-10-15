@@ -874,7 +874,12 @@ class AlimentSelfTest : ModInitializer {
         // `fabric:load_conditions` drops the file with no error of any kind.
         val fdLoaded = this.fdLoaded
         logger.info("SELFTEST farmersdelight loaded={}", fdLoaded)
-        listOf("grapefruit_from_cutting", "grape_seeds_from_cutting", "grapefruit_juice_from_cooking").forEach { id ->
+        listOf(
+            "grapefruit_from_cutting",
+            "grape_seeds_from_cutting",
+            "grapefruit_juice_from_cooking",
+            "grape_juice_from_cooking",
+        ).forEach { id ->
             val present = level.server.recipeManager
                 .byKey(ResourceKey.create(Registries.RECIPE, Registration.id(id)))
                 .isPresent
@@ -906,6 +911,26 @@ class AlimentSelfTest : ModInitializer {
             check(
                 "and is drawn into a glass bottle",
                 FarmersDelightRecipes.cookingPotContainer(recipe).`is`(Items.GLASS_BOTTLE),
+            )
+
+            // The same recipe for the grape: a grape and a sugar, into the same bottle. It is a
+            // separate file and so a separate silent-drop risk, which is why it is asked rather than
+            // assumed from its sibling above.
+            val grapeRecipe = level.server.recipeManager
+                .byKey(ResourceKey.create(Registries.RECIPE, Registration.id("grape_juice_from_cooking")))
+                .orElse(null)
+                ?.value()
+            val grapeInputs = grapeRecipe?.placementInfo()?.ingredients().orEmpty()
+            logger.info("SELFTEST cooking pot grape juice ingredient count: {}", grapeInputs.size)
+            check(
+                "the cooking pot's grape juice takes one grape",
+                grapeInputs.count { it.test(ItemStack(AlimentItems.GRAPE, 1)) } == 1,
+            )
+            check("and takes one sugar", grapeInputs.count { it.test(ItemStack(Items.SUGAR, 1)) } == 1)
+            check("and takes nothing else", grapeInputs.size == 2)
+            check(
+                "and is drawn into a glass bottle",
+                FarmersDelightRecipes.cookingPotContainer(grapeRecipe).`is`(Items.GLASS_BOTTLE),
             )
         }
     }
@@ -1027,6 +1052,22 @@ class AlimentSelfTest : ModInitializer {
             "and a cooked steak carries none, because the vitamin is in the plants",
             fdItem("grilled_salmon")?.let { FarmersDelightNutrition.vitaminCFor(it) } == 0f,
         )
+        // Every plant food is topped up on top of its own figure, the same as Aliment's own plants:
+        // the table's value is kept and the supplement is added to it at ingestion, never instead of
+        // it. Every Farmer's Delight plant happens to have a figure of its own, so the "no figure at
+        // all" case is pinned on a vanilla potato in the physiology suite rather than here.
+        check(
+            "a Farmer's Delight plant food is classified as one, so it gets the supplement",
+            fdItem("tomato")?.let { FarmersDelightNutrition.isPlantFood(it) } == true,
+        )
+        check(
+            "and its own figure is kept rather than replaced by the supplement",
+            fdItem("onion")?.let { FarmersDelightNutrition.vitaminCFor(it) } == 6.0f,
+        )
+        check(
+            "but a plate of meat is not plant food and gets none",
+            fdItem("grilled_salmon")?.let { FarmersDelightNutrition.isPlantFood(it) } == false,
+        )
 
         // The tiers, each on an item that is unmistakably of its kind.
         check(
@@ -1053,6 +1094,20 @@ class AlimentSelfTest : ModInitializer {
             "a tomato is charged as plant food",
             fdItem("tomato")?.let { FarmersDelightNutrition.glucoseFor(it) } ==
                 AlimentData.GLUCOSE_PER_PLANT_FOOD,
+        )
+        check(
+            "and counts as plant food, so it carries the plant water too",
+            fdItem("tomato")?.let { FarmersDelightNutrition.isPlantFood(it) } == true,
+        )
+        // The control: a cut of meat is the same *glucose* as a tomato now, and must not be treated as
+        // plant food - which is exactly the confusion a classifier written on the glucose figure makes.
+        check(
+            "but a cut of meat is not plant food, despite the same glucose",
+            fdItem("minced_beef")?.let { FarmersDelightNutrition.isPlantFood(it) } == false,
+        )
+        check(
+            "nor is one of its soups, which is a drink instead",
+            fdItem("bone_broth")?.let { FarmersDelightNutrition.isPlantFood(it) } == false,
         )
 
         // The drinks: the three sweetened ones count as drinks *and* as sweet drinks, and the
@@ -1107,12 +1162,23 @@ class AlimentSelfTest : ModInitializer {
             traceElements = TraceElements.HEALTHY.withIodine(0.15f).withVitaminC(30.0f),
         )
 
-        // Vitamin C: a tomato is worth a carrot, which the suite already pins at +10.
+        // Vitamin C: a tomato is worth a carrot, which the suite already pins at +10 - and, being a
+        // plant food, it also carries the plant supplement, so the total is 15.
         player.setAttached(AlimentAttachments.DATA, deficient)
         ItemStack(fdItem("tomato")!!, 1).finishUsingItem(level, player)
         val afterTomato = player.getAttachedOrCreate(AlimentAttachments.DATA).traceElements.vitaminC
         logger.info("SELFTEST farmersdelight vitamin C after a tomato = {}", afterTomato)
-        check("eating a Farmer's Delight tomato adds its vitamin C", abs(afterTomato - 40.0f) < 0.001f)
+        check(
+            "eating a Farmer's Delight tomato adds its vitamin C and the plant supplement",
+            abs(afterTomato - (30f + 10f + AlimentData.VITAMIN_C_PER_PLANT_FOOD)) < 0.001f,
+        )
+        check(
+            "and its plant food's water",
+            abs(
+                player.getAttachedOrCreate(AlimentAttachments.DATA).water -
+                    (deficient.water + AlimentData.WATER_PER_PLANT_FOOD),
+            ) < 0.001f,
+        )
 
         // Iodine: a kelp roll, and the glucose it carries as a dish.
         player.setAttached(AlimentAttachments.DATA, deficient)
@@ -1356,6 +1422,11 @@ class AlimentSelfTest : ModInitializer {
             level,
             "grapefruit_juice",
             listOf(ItemStack(Items.SUGAR, 1), ItemStack(AlimentItems.GRAPEFRUIT_SLICE, 1)),
+        )
+        checkWaterBottleRecipe(
+            level,
+            "grape_juice",
+            listOf(ItemStack(Items.SUGAR, 1), ItemStack(AlimentItems.GRAPE, 1)),
         )
         checkWaterBottleRecipe(level, "salt_water", listOf(ItemStack(AlimentItems.SALT_POWDER, 1)))
         checkWaterBottleRecipe(level, "crude_salt_water", listOf(ItemStack(AlimentItems.CRUDE_SALT, 1)))

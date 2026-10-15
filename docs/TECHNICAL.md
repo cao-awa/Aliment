@@ -88,7 +88,7 @@ When IntelliJ IDEA is configured with "Build and run using: IntelliJ IDEA", the 
 | --- | --- | --- |
 | `ItemMixin.java` | `net.minecraft.world.item.ItemStack` | Intercepts completed item consumption to trigger `AlimentIngestion` metabolism |
 | `PlayerMixin.java` | `net.minecraft.world.entity.player.Player` | Modulates exhaustion rates and severe dehydration damage |
-| `GrindstoneInputSlotMixin.java` | `net.minecraft.world.inventory.GrindstoneMenu` (Input Slot) | Lifts vanilla damaged/enchanted item restrictions, allowing botanical herbs, rock salt, and bark |
+| `GrindstoneInputSlotMixin.java` | `net.minecraft.world.inventory.GrindstoneMenu` (Input Slot) | Lifts vanilla damaged/enchanted item restrictions, allowing botanical herbs, crushed rock salt, rock salt, and bark |
 | `GrindstoneMenuMixin.java` | `net.minecraft.world.inventory.GrindstoneMenu` | Hooks into `AlimentGrinding` recipe maps to produce milled powders and botanical pieces |
 | `CameraMixin.java` (Client) | `net.minecraft.client.Camera` | Applies damped oscillatory camera roll during hypothermic shivering without displacing entity physics |
 | `FogRendererMixin.java` (Client) | `net.minecraft.client.renderer.FogRenderer` | Contracts view fog distance down to 8 blocks during anticholinergic intoxication |

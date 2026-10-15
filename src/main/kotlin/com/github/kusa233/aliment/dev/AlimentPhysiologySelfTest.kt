@@ -63,6 +63,7 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.level.GameType
 import net.minecraft.world.level.block.AbstractBedBlock
+import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.storage.loot.LootParams
 import net.minecraft.world.level.storage.loot.LootTable
@@ -146,10 +147,12 @@ class AlimentPhysiologySelfTest : ModInitializer {
         pyrogenInducesFever()
         thyroidMovesTheSetPoint()
         glucoseFasting()
+        glucoseExcess()
         glucoseAfterAMeal()
         insulinRespondsToGlucose()
         insulinInjection()
         foodGlucoseAmounts()
+        waterFromPlantFood()
         hypoglycemiaSymptoms()
         peacefulIsFrozen()
         naringinAndCyp3a4()
@@ -673,12 +676,15 @@ class AlimentPhysiologySelfTest : ModInitializer {
 
     /**
      * Iodine is the one mineral the body cannot make and does not conserve: what is not eaten is
-     * lost. A full store - normal 0.50 down to the hard floor 0.05 - is drained in exactly five
+     * lost. A full store - normal 0.50 down to the hard floor 0.05 - is drained in exactly fifteen
      * in-game days, and then it stays on the floor until kelp puts something back.
      *
-     * The leak is flat while the value is at or below normal, so the five days and the halfway point
-     * are both exact figures rather than approaches; the one term that is not flat is the surplus
-     * clearance, which only ever makes an excess leave sooner.
+     * The leak is flat while the value is at or below normal, so the fifteen days and the halfway
+     * point are both exact figures rather than approaches; the one term that is not flat is the
+     * surplus clearance, which only ever makes an excess leave sooner.
+     *
+     * The leak was slowed to a third, from five days to fifteen, and that changes the diet arithmetic
+     * below: a kelp is worth 0.05 and a day of the leak now costs 0.03, where it used to cost 0.09.
      */
     private fun iodineDepletion() {
         val iodine = Mineral.IODINE
@@ -686,49 +692,51 @@ class AlimentPhysiologySelfTest : ModInitializer {
         val halfway = (iodine.normal + floor) / 2f
 
         var data = AlimentData.HEALTHY
-        repeat(60_000) { data = AlimentPhysiology.tick(data) }
-        logger.info("PHYS iodine after two and a half days with no kelp: {}", data.traceElements.iodine)
-        check("half the store is gone after half of the five days", abs(data.traceElements.iodine - halfway) < 0.01f)
+        repeat(180_000) { data = AlimentPhysiology.tick(data) }
+        logger.info("PHYS iodine after seven and a half days with no kelp: {}", data.traceElements.iodine)
+        check("half the store is gone after half of the fifteen days", abs(data.traceElements.iodine - halfway) < 0.01f)
 
-        repeat(60_000) { data = AlimentPhysiology.tick(data) }
-        logger.info("PHYS iodine after five days with no kelp: {} (floor {})", data.traceElements.iodine, floor)
-        check("five game days empty the store", abs(data.traceElements.iodine - floor) < 0.001f)
+        repeat(180_000) { data = AlimentPhysiology.tick(data) }
+        logger.info("PHYS iodine after fifteen days with no kelp: {} (floor {})", data.traceElements.iodine, floor)
+        check("fifteen game days empty the store", abs(data.traceElements.iodine - floor) < 0.001f)
         check("an empty store is severe iodine deficiency", data.traceElements.iodine < iodine.severeLow)
         check("and it is reported as an imbalance", data.hasTraceElementImbalance)
         check("the thyroid follows it down", AlimentPhysiology.targetTemperature(data) < 36.5f)
 
         repeat(24_000) { data = AlimentPhysiology.tick(data) }
-        check("a sixth day does not drain it any further", abs(data.traceElements.iodine - floor) < 0.001f)
+        check("a sixteenth day does not drain it any further", abs(data.traceElements.iodine - floor) < 0.001f)
         check("the five electrolytes are unaffected", !data.hasElectrolyteImbalance)
         check("iodine is not part of the electrolyte set", Electrolytes.MINERALS.none { it == Mineral.IODINE })
 
-        // Kelp is the only way back. The leak costs 0.09 umol/L a day, so a wet kelp (0.05) is not a
-        // day's worth and two of them just about are.
+        // The leak is a third of what it was, which is the figure the change was asked for: 0.45 of
+        // store used to go in five days and now takes fifteen. Measured, not restated - the fraction
+        // the model divides by is private, so what is pinned is the behaviour a day of it produces.
+        var measured = AlimentData.HEALTHY
+        repeat(24_000) { measured = AlimentPhysiology.tick(measured) }
+        val aDaysLeak = AlimentData.HEALTHY.traceElements.iodine - measured.traceElements.iodine
+        logger.info("PHYS iodine lost in a day: {} (used to be 0.09)", aDaysLeak)
+        check("a day of the leak costs 0.03, a third of the old 0.09", abs(aDaysLeak - 0.03f) < 0.0005f)
+
+        // Kelp is the only way back, and it goes further than it used to. A kelp is 0.05 against a
+        // daily leak of 0.03, so one a day is now a *winning* diet where it used to be a losing one -
+        // two a day were needed to hold the range before this change.
         val oneKelp = AlimentPhysiology.iodine(data, 0.05f)
         logger.info("PHYS iodine after one kelp from an empty store: {}", oneKelp.traceElements.iodine)
         check("one kelp lifts an empty store off the floor", oneKelp.traceElements.iodine > floor + 0.04f)
-        check("but one kelp is less than a day's loss", oneKelp.traceElements.iodine < floor + 0.09f)
+        check("and one kelp is now more than a day's loss", oneKelp.traceElements.iodine > floor + 0.03f)
 
-        // One a day is a losing diet and two is a holding one, but the deficit is slower now, so the
-        // run has to be long enough for the difference to actually show: 0.04 a day against a 0.25
-        // floor takes a little over six days to fall out of the range.
+        // One a day now holds the range on its own, which it did not before: 0.05 of kelp against a
+        // 0.03 leak leaves a surplus of 0.02 a day, and the surplus term is what stops that from
+        // running away to the ceiling.
         var oneADay = AlimentData.HEALTHY
-        var twoADay = AlimentData.HEALTHY
         repeat(8 * 24_000) { tick ->
             oneADay = AlimentPhysiology.tick(oneADay)
-            twoADay = AlimentPhysiology.tick(twoADay)
             if (tick % 24_000 == 0) {
                 oneADay = AlimentPhysiology.iodine(oneADay, 0.05f)
-                twoADay = AlimentPhysiology.iodine(twoADay, 0.05f)
-                twoADay = AlimentPhysiology.iodine(twoADay, 0.05f)
             }
         }
-        logger.info(
-            "PHYS iodine after eight days: one kelp a day {} two a day {}",
-            oneADay.traceElements.iodine, twoADay.traceElements.iodine,
-        )
-        check("one kelp a day does not hold the reference range", oneADay.traceElements.iodine < Mineral.IODINE.safeLow)
-        check("two kelp a day does", twoADay.traceElements.iodine in Mineral.IODINE.safeLow..Mineral.IODINE.safeHigh)
+        logger.info("PHYS iodine after eight days on one kelp a day: {}", oneADay.traceElements.iodine)
+        check("one kelp a day holds the reference range", oneADay.traceElements.iodine in Mineral.IODINE.safeLow..Mineral.IODINE.safeHigh)
 
         val tooMuch = AlimentPhysiology.iodine(AlimentData.HEALTHY, 0.45f)
         logger.info("PHYS iodine after three helpings of kelp: {}", tooMuch.traceElements.iodine)
@@ -736,12 +744,13 @@ class AlimentPhysiologySelfTest : ModInitializer {
         check("an iodine excess is reported as an imbalance", tooMuch.hasTraceElementImbalance)
 
         // Nothing stores it: the surplus is drained away, and the surplus term makes it go sooner
-        // than the flat leak alone would. Twelve days is comfortably more than the two stretches this
-        // is made of - about four and a half days for the 0.45 of excess to be cleared, then the five
-        // days the flat leak needs for the rest - and is deliberately not tuned to the exact figure,
-        // so that a small retune of either rate does not fail a check about *storage*.
+        // than the flat leak alone would. The surplus term was tripled along with this change, but the
+        // ordinary leak it falls back to was cut to a third, so the total is *longer* than it was:
+        // about eight days for the 0.45 of excess, then fifteen days of leak for the rest, which is
+        // 23 - so 26 is comfortably clear of it and deliberately not tuned to the exact figure, so
+        // that a small retune of either rate does not fail a check about *storage*.
         var recovered = tooMuch
-        repeat(12 * 24_000) { recovered = AlimentPhysiology.tick(recovered) }
+        repeat(26 * 24_000) { recovered = AlimentPhysiology.tick(recovered) }
         check(
             "an iodine excess is drained away rather than stored",
             abs(recovered.traceElements.iodine - floor) < 0.001f,
@@ -767,12 +776,12 @@ class AlimentPhysiologySelfTest : ModInitializer {
     /**
      * A surplus of iodine leaves faster than the flat leak takes it, and a shortfall does not.
      *
-     * This is the half of the change that has to be pinned separately, because "five days from normal
-     * to the floor" and "a surplus clears sooner" pull in opposite directions on the same line of the
-     * model: a leak that scaled with the value itself would satisfy the second and quietly break the
-     * first. So the check compares a surplus body and a normal body over the same ticks and requires
-     * the surplus to have lost *more* - while the depletion test above still holds the flat figure
-     * exactly from normal down.
+     * This is the half of the change that has to be pinned separately, because "fifteen days from
+     * normal to the floor" and "a surplus clears sooner" pull in opposite directions on the same line
+     * of the model: a leak that scaled with the value itself would satisfy the second and quietly
+     * break the first. So the check compares a surplus body and a normal body over the same ticks and
+     * requires the surplus to have lost *more* - while the depletion test above still holds the flat
+     * figure exactly from normal down.
      */
     private fun surplusClearsFasterThanTheLeak() {
         val surplus = AlimentData.HEALTHY.copy(traceElements = TraceElements.HEALTHY.withIodine(1.0f))
@@ -791,10 +800,12 @@ class AlimentPhysiologySelfTest : ModInitializer {
 
         check("a surplus is cleared faster than a normal store is", surplusLoss > normalLoss)
         // ...and the difference is the surplus term, not a rounding artefact. Half a day of the excess
-        // term on 0.50 of excess, at 0.000002 per tick, is 0.012 - so anything above the flat leak by
+        // term on 0.50 of excess, at 0.000006 per tick, is 0.036 - so anything above the flat leak by
         // a hundredth is the term and not noise.
         check("and the difference is large enough to be the surplus term", surplusLoss - normalLoss > 0.01f)
-        check("a normal store is still drained by the flat leak alone", abs(normalLoss - 0.45f * 12000 / 120000) < 0.001f)
+        // The flat leak is a third of what it was, so a normal store now loses 0.015 in half a day
+        // rather than 0.045; fifteen days, not five, is what empties it.
+        check("a normal store is still drained by the flat leak alone", abs(normalLoss - 0.45f * 12000 / 360000) < 0.001f)
     }
 
     private fun vitaminCDepletion() {
@@ -1012,9 +1023,13 @@ class AlimentPhysiologySelfTest : ModInitializer {
     /**
      * Blood glucose is *spent*, not regulated to a set point, so a body that never eats runs it down.
      *
-     * The two-day figure is the one the feature is written around: from the normal 5.0 a fasting body
-     * reaches 3.5 in exactly two in-game days, and past that the fall slows down, because what is
+     * The six-day figure is the one the feature is written around: from the normal 5.0 a fasting body
+     * reaches 3.5 in exactly six in-game days, and past that the fall slows down, because what is
      * left is what the body is rationing rather than what it is burning.
+     *
+     * Above the top of the reference range the *excess* rate takes over instead, and that one is
+     * faster than the model's original two-day drain rather than a third of it - so a spike is shed
+     * briskly and the value is pulled back down into the range.
      */
     private fun glucoseFasting() {
         var data = AlimentData.HEALTHY.copy(glucose = AlimentData.GLUCOSE_NORMAL)
@@ -1023,36 +1038,118 @@ class AlimentPhysiologySelfTest : ModInitializer {
 
         var halfDay = data
         repeat(12_000) { halfDay = AlimentPhysiology.tick(halfDay) }
-        var twoDays = halfDay
-        repeat(3 * 12_000) { twoDays = AlimentPhysiology.tick(twoDays) }
-        logger.info("PHYS fasting glucose: half a day {} two days {}", halfDay.glucose, twoDays.glucose)
+        var sixDays = halfDay
+        repeat(6 * 24_000 - 12_000) { sixDays = AlimentPhysiology.tick(sixDays) }
+        logger.info("PHYS fasting glucose: half a day {} six days {}", halfDay.glucose, sixDays.glucose)
         check("half a day of fasting is still in the reference range", halfDay.isGlucoseNormal)
         check("and it is falling", halfDay.glucose < AlimentData.GLUCOSE_NORMAL)
-        check("two days of fasting reaches the floor, 3.5", abs(twoDays.glucose - AlimentData.GLUCOSE_FASTING_FLOOR) < 0.02f)
+        check(
+            "six days of fasting reaches the floor, 3.5",
+            abs(sixDays.glucose - AlimentData.GLUCOSE_FASTING_FLOOR) < 0.02f,
+        )
 
-        // Past the floor the fall slows down. The first two days cost 1.5; the next two, from the
+        // The reduced rate is a third of the original, which is the figure the change was asked for
+        // in: what used to take two days now takes six.
+        val twoDays = runGlucose(2 * 24_000)
+        logger.info("PHYS glucose after two days of fasting (used to reach the floor): {}", twoDays)
+        check("two days of fasting no longer reaches the floor", twoDays > AlimentData.GLUCOSE_FASTING_FLOOR + 0.4f)
+        check("and the drain really is a third of what it was", abs(twoDays - 4.5f) < 0.02f)
+
+        // Past the floor the fall slows down. The first six days cost 1.5; the next two, from the
         // floor down, are a fixed *fraction* of what is left rather than a flat rate, so they cost
         // less - which is the body rationing what it has instead of burning it.
-        var fourDays = twoDays
-        repeat(2 * 24_000) { fourDays = AlimentPhysiology.tick(fourDays) }
-        val firstDrop = AlimentData.GLUCOSE_NORMAL - twoDays.glucose
-        val secondDrop = twoDays.glucose - fourDays.glucose
+        var eightDays = sixDays
+        repeat(2 * 24_000) { eightDays = AlimentPhysiology.tick(eightDays) }
+        val firstDrop = AlimentData.GLUCOSE_NORMAL - sixDays.glucose
+        val secondDrop = sixDays.glucose - eightDays.glucose
         logger.info(
-            "PHYS fasting glucose over four days: {} then {} (drops {} then {})",
-            twoDays.glucose, fourDays.glucose, firstDrop, secondDrop,
+            "PHYS fasting glucose over eight days: {} then {} (drops {} then {})",
+            sixDays.glucose, eightDays.glucose, firstDrop, secondDrop,
         )
-        check("the second two days cost less than the first two", secondDrop < firstDrop)
-        check("and it never goes below zero", fourDays.glucose >= AlimentData.GLUCOSE_MIN)
+        check("the second two days cost less than the first six", secondDrop < firstDrop)
+        check("and it never goes below zero", eightDays.glucose >= AlimentData.GLUCOSE_MIN)
 
-        // A body with nothing left is hypoglycaemic, and that is the tier that hurts.
-        logger.info("PHYS glucose after eight days of nothing: {}", eightDayGlucose())
-        check("eight days without food is a hypoglycaemic crash", eightDayGlucose() < AlimentData.GLUCOSE_HYPO_FATIGUE)
+        // A body with nothing left is hypoglycaemic, and that is the tier that hurts. The run is much
+        // longer than the old eight days because the drain is a third of what it was: past the floor
+        // the fall is a fixed fraction of what is left, with a time constant of about a fortnight, so
+        // reaching the 2.0 symptom threshold now takes roughly a fortnight in total rather than eight
+        // days. The figure is asserted as a threshold and not a value, so it does not pin the curve.
+        logger.info("PHYS glucose after eighteen days of nothing: {}", starvedGlucose())
+        check("eighteen days without food is a hypoglycaemic crash", starvedGlucose() < AlimentData.GLUCOSE_HYPO_FATIGUE)
     }
 
-    /** Blood glucose after eight game days with nothing eaten, which is the starving steady state. */
-    private fun eightDayGlucose(): Float {
+    /** Blood glucose after eighteen game days with nothing eaten, which is the starving steady state. */
+    private fun starvedGlucose(): Float {
         var data = AlimentData.HEALTHY.copy(glucose = AlimentData.GLUCOSE_NORMAL)
-        repeat(8 * 24_000) { data = AlimentPhysiology.tick(data) }
+        repeat(18 * 24_000) { data = AlimentPhysiology.tick(data) }
+        return data.glucose
+    }
+
+    /**
+     * A glucose load above the reference range is shed at the *excess* rate, which is half again as
+     * fast as the model's original drain - not a third of it.
+     *
+     * This is the half of the change that pulls an overshoot back down, and it is deliberately not
+     * the reduced rate: slowing the normal band must not make a spike linger, or the two changes
+     * would work against each other.
+     */
+    private fun glucoseExcess() {
+        val top = AlimentData.GLUCOSE_SAFE_HIGH
+        val start = 10f
+        var data = AlimentData.HEALTHY.copy(glucose = start)
+        logger.info("PHYS glucose excess: starting at {}", data.glucose)
+
+        // The basal term on its own, measured over a single tick where the insulin terms are still
+        // negligible: 1.5x the original 1.5/48000, against a third of it in the normal band. The gap
+        // between them is therefore 1.5 / (1/3) = 4.5x, which is what "half again as fast as the
+        // original, not of the slowed one" means numerically.
+        val oneTick = AlimentPhysiology.tick(data)
+        val basalInExcess = start - oneTick.glucose
+        val inRangeTick = AlimentData.HEALTHY.copy(glucose = 5.2f)
+        val basalInRange = 5.2f - AlimentPhysiology.tick(inRangeTick).glucose
+        logger.info(
+            "PHYS glucose basal per tick: in excess {} in range {} (ratio {})",
+            basalInExcess, basalInRange, basalInExcess / basalInRange,
+        )
+        check("the excess rate is the original 1.5/48000 times 1.5", abs(basalInExcess - (1.5f / 48000f) * 1.5f) < 1e-5f)
+        check("the in-range rate is the original divided by 3", abs(basalInRange - (1.5f / 48000f) / 3f) < 1e-5f)
+        check("so an excess is shed 4.5 times faster than the normal band", abs(basalInExcess / basalInRange - 4.5f) < 0.05f)
+
+        // One day carrying the load, which is where the insulin term does its work on top.
+        var oneDay = data
+        repeat(24_000) { oneDay = AlimentPhysiology.tick(oneDay) }
+        val drop = start - oneDay.glucose
+        logger.info("PHYS glucose after a day carrying a load: {} (dropped {})", oneDay.glucose, drop)
+        check("a surplus is being cleared", drop > 0f)
+        check("and it is cleared faster than the original two-day rate", drop > 0.75f)
+
+        // Whatever the insulin does on top, the value has to come back inside the range rather than
+        // sitting above it - that is the whole point of accelerating the excess.
+        var recovered = data
+        repeat(4 * 24_000) { recovered = AlimentPhysiology.tick(recovered) }
+        logger.info("PHYS glucose four days after a 10.0 load: {}", recovered.glucose)
+        check("a load of 10.0 is back inside the reference range within four days", recovered.glucose <= top)
+        check("and it did not undershoot into a crash doing it", recovered.glucose > 0f)
+
+        // Below the top of the range the *slow* rate takes over again, and at the bottom of it the
+        // insulin brake is applied - so the two rates really are picked by the band and not blended.
+        val justUnder = AlimentData.HEALTHY.copy(glucose = top)
+        val justOver = AlimentData.HEALTHY.copy(glucose = top + 0.02f)
+        logger.info(
+            "PHYS glucose either side of {}: {} then {}",
+            top, top - AlimentPhysiology.tick(justUnder).glucose, (top + 0.02f) - AlimentPhysiology.tick(justOver).glucose,
+        )
+        check(
+            "the rate steps up at the top of the reference range rather than ramping",
+            (top + 0.02f) - AlimentPhysiology.tick(justOver).glucose >
+                (top - AlimentPhysiology.tick(justUnder).glucose) * 2f,
+        )
+    }
+
+    /** Blood glucose after this many ticks with nothing eaten. */
+    private fun runGlucose(ticks: Int): Float {
+        var data = AlimentData.HEALTHY.copy(glucose = AlimentData.GLUCOSE_NORMAL)
+        repeat(ticks) { data = AlimentPhysiology.tick(data) }
         return data.glucose
     }
 
@@ -1186,14 +1283,23 @@ class AlimentPhysiologySelfTest : ModInitializer {
             AlimentData.GLUCOSE_PER_PLANT_FOOD, AlimentData.GLUCOSE_PER_BREAD,
             AlimentData.GLUCOSE_PER_RAW_MEAT, AlimentData.GLUCOSE_PER_COOKED_MEAT,
         )
-        check("plant food adds 0.4", AlimentData.GLUCOSE_PER_PLANT_FOOD == 0.4f)
+        check("plant food adds 0.2", AlimentData.GLUCOSE_PER_PLANT_FOOD == 0.2f)
         check("bread adds 0.7", AlimentData.GLUCOSE_PER_BREAD == 0.7f)
-        check("raw meat adds 0.4", AlimentData.GLUCOSE_PER_RAW_MEAT == 0.4f)
-        check("cooked meat adds 0.5", AlimentData.GLUCOSE_PER_COOKED_MEAT == 0.5f)
+        check("raw meat adds 0.2", AlimentData.GLUCOSE_PER_RAW_MEAT == 0.2f)
+        check("cooked meat adds 0.25", AlimentData.GLUCOSE_PER_COOKED_MEAT == 0.25f)
         check(
             "bread is the worst of the four for a body",
             AlimentData.GLUCOSE_PER_BREAD > AlimentData.GLUCOSE_PER_COOKED_MEAT &&
                 AlimentData.GLUCOSE_PER_COOKED_MEAT > AlimentData.GLUCOSE_PER_PLANT_FOOD,
+        )
+        // The halving was deliberate and one-sided, so it is pinned: the plain foods are gentler than
+        // they were, and bread is untouched. A later edit that "tidies" bread down with them fails.
+        check(
+            "the plain foods were halved and bread was not",
+            AlimentData.GLUCOSE_PER_PLANT_FOOD == 0.4f / 2f &&
+                AlimentData.GLUCOSE_PER_RAW_MEAT == 0.4f / 2f &&
+                AlimentData.GLUCOSE_PER_COOKED_MEAT == 0.5f / 2f &&
+                AlimentData.GLUCOSE_PER_BREAD == 0.7f,
         )
 
         val cases = listOf(
@@ -1227,6 +1333,43 @@ class AlimentPhysiologySelfTest : ModInitializer {
         check("eating bread raises the glucose by 0.7", abs(data.glucose - 5.7f) < 0.001f)
         check("and one loaf is enough to leave the reference range", data.isHyperglycemic)
         check("but not by much", data.glucose < AlimentData.GLUCOSE_ELEVATED)
+    }
+
+    /**
+     * The water plant food carries, and the three ways it must *not* be applied.
+     *
+     * The amount is small - a fortieth of a drink - so the failure this guards against is not a big
+     * number in the wrong place, it is the wrong *food*: meat being hydrated as if it were a carrot,
+     * a drink being hydrated twice, or the slice that is already a drink in its own right being
+     * stacked on top of its own water.
+     *
+     * The predicate is asked directly as well as through the body, because the thing that makes this
+     * subtle is that it can no longer be inferred from the glucose figure: plant food and raw meat are
+     * both worth 0.2, so a classifier written as "adds the plant figure" would quietly hydrate beef.
+     */
+    private fun waterFromPlantFood() {
+        logger.info("PHYS water per plant food: {}", AlimentData.WATER_PER_PLANT_FOOD)
+        check("a serving of plant food carries 0.4 water", AlimentData.WATER_PER_PLANT_FOOD == 0.4f)
+        check(
+            "which is a small fraction of a drink, not a drink",
+            AlimentData.WATER_PER_PLANT_FOOD < AlimentData.WATER_PER_DRINK / 10f,
+        )
+        check("and it is positive, so the food hydrates at all", AlimentData.WATER_PER_PLANT_FOOD > 0f)
+
+        // The classifier, item by item, including the trap: an apple is plant food, beef is not -
+        // even though the two are worth the same glucose.
+        check("an apple is plant food", AlimentIngestion.isPlantFood(Items.APPLE))
+        check("and so is a carrot", AlimentIngestion.isPlantFood(Items.CARROT))
+        check("and a kelp", AlimentIngestion.isPlantFood(Items.KELP))
+        check("and the mod's own seaweed", AlimentIngestion.isPlantFood(AlimentItems.SEAWEED))
+        check("and a willow bark soup", AlimentIngestion.isPlantFood(AlimentItems.WILLOW_BARK_SOUP_BOWL))
+        check(
+            "but beef is not, despite being worth the same glucose as an apple",
+            AlimentData.GLUCOSE_PER_RAW_MEAT == AlimentData.GLUCOSE_PER_PLANT_FOOD &&
+                !AlimentIngestion.isPlantFood(Items.BEEF),
+        )
+        check("nor is cooked beef", !AlimentIngestion.isPlantFood(Items.COOKED_BEEF))
+        check("nor is a rock", !AlimentIngestion.isPlantFood(Items.STONE))
     }
 
     /**
@@ -1742,7 +1885,10 @@ class AlimentPhysiologySelfTest : ModInitializer {
         var contacts = 0
         repeat(trials) { if (AlimentInfection.contactRoll(random)) contacts++ }
         logger.info("PHYS contact dice: {}/{} rolls came up", contacts, trials)
-        check("contact is a 5% roll", contacts in 5..40)
+        check("contact is a 1% roll", contacts in 0..15)
+        // The dice above are a sanity check on the *rate*; this pins the number itself, so a constant
+        // nudged to 3% would still fail here even though 400 trials could get lucky and pass.
+        check("and the chance behind it is exactly one in a hundred", AlimentInfection.CONTACT_CHANCE == 0.01f)
 
         var opportunistic = 0
         val seeds = mutableSetOf<Float>()
@@ -2172,6 +2318,107 @@ class AlimentPhysiologySelfTest : ModInitializer {
         // The only effects left are the iodine excess this case is built out of, which has its own
         // icons (hunger, nausea, weakness). Mining fatigue is what the fever tier would have added.
         check("and no symptom the temperature is responsible for", !player.hasEffect(MobEffects.MINING_FATIGUE))
+
+        immuneShakeOnset()
+    }
+
+    /**
+     * The immune system's own tremor starts at an inflammation of 75 - the storm threshold itself -
+     * and the symptom load is what shakes the view below that.
+     *
+     * The point of the onset is that only a storm is visible as a tremor: a body fighting off an
+     * ordinary infection has an inflammation well above baseline but nowhere near the storm, and
+     * before the onset was raised it shook the camera from 40 upward. The immune term is now a step
+     * rather than a ramp, because the onset and the storm are the same number and there is no ground
+     * left between them to climb across.
+     */
+    private fun immuneShakeOnset() {
+        val onset = AlimentData.IMMUNE_SHAKE_ONSET
+        val storm = AlimentData.IMMUNE_STORM_THRESHOLD
+        logger.info("PHYS immune shake onset {} storm {}", onset, storm)
+        check("the onset is 75", abs(onset - 75f) < 0.001f)
+        // The two coinciding is the whole point of this change rather than a coincidence to leave
+        // unpinned: the shake chance and the amplitude now switch on at the same inflammation.
+        check("and it is the storm threshold, so only a storm trembles", abs(onset - storm) < 0.001f)
+        check("and it is above the safe band's top, so an ordinary response never shakes", onset > AlimentData.SAFE_INFLAMMATION_HIGH)
+
+        // A body with no infection at all: the only thing that can shake it is inflammation, and the
+        // pathogen and temperature terms are zero. The five mediators are set equal because their
+        // weights sum to exactly 1.0, which makes the inflammation index the value itself - scaling
+        // only the cytokine instead saturates at 100 and cannot reach the storm threshold at all.
+        val quiet = AlimentData.HEALTHY.copy(bacteria = 0f, virus = 0f)
+        check("a healthy body shakes not at all", AlimentSymptoms.shakeChance(quiet) == 0f)
+
+        fun atInflammation(value: Float): Float = AlimentSymptoms.shakeChance(
+            quiet.copy(mediators = Mediators(value, value, value, value, value)),
+        )
+
+        // The fixture is only meaningful if it really lands on the inflammation asked for.
+        check(
+            "the inflammation fixture reaches the storm threshold",
+            abs(quiet.copy(mediators = Mediators(storm, storm, storm, storm, storm)).inflammation - storm) < 0.01f,
+        )
+
+        logger.info(
+            "PHYS immune shake chance: baseline {} at 40 {} at 60 {} at 74.9 {} at 75 {} at 80 {}",
+            atInflammation(AlimentData.BASELINE_INFLAMMATION),
+            atInflammation(40f), atInflammation(60f), atInflammation(74.9f),
+            atInflammation(storm), atInflammation(80f),
+        )
+        check("inflammation at the baseline does not shake the camera", atInflammation(AlimentData.BASELINE_INFLAMMATION) == 0f)
+        // 40 was the old onset, so it is worth naming on its own: this is the value whose behaviour
+        // changed, and an assertion that still passed at 40 would not be testing the change at all.
+        check("and neither does 40, which used to be the onset", atInflammation(40f) == 0f)
+        check("nor 60, nor anything else below the storm", atInflammation(60f) == 0f)
+        check("nor just under it, at 74.9", atInflammation(74.9f) == 0f)
+        check("the storm threshold itself is where it starts", atInflammation(storm) > 0f)
+        check("and it is fully on there, not part way", abs(atInflammation(storm) - 0.2f) < 0.001f)
+        check("and stays fully on above it", abs(atInflammation(80f) - 0.2f) < 0.001f)
+
+        // The full weight is the old storm's doubling of the symptom term: a symptomatic body at the
+        // storm shakes by 0.2 + 0.2, exactly as it did when the storm was a x2 multiplier.
+        val symptomaticAtStorm = quiet.copy(
+            bacteria = AlimentData.SYMPTOM_THRESHOLD,
+            mediators = Mediators(storm, storm, storm, storm, storm),
+        )
+        logger.info("PHYS shake chance with symptoms at the storm: {}", AlimentSymptoms.shakeChance(symptomaticAtStorm))
+        check(
+            "a storm adds the same as the doubling it replaced",
+            abs(AlimentSymptoms.shakeChance(symptomaticAtStorm) - 0.4f) < 0.001f,
+        )
+
+        // The amplitude, which nothing else looks at. It is asserted by *value* rather than against
+        // the old coefficients, because the constants are private to the model and the point of the
+        // change is precisely that these numbers are now the model's rather than Kotlin's. Halving
+        // them is what makes the shake something the player reads as "unwell" rather than "hard to
+        // aim", so the figures are pinned exactly. Each term is isolated with the fixture that turns
+        // only it on: a severe load, then a storm, then a cold body, then a calcium deficit.
+        val severe = quiet.copy(bacteria = AlimentData.SEVERE_LOAD)
+        val atStorm = quiet.copy(mediators = Mediators(storm, storm, storm, storm, storm))
+        val cold = quiet.copy(temperature = 30f)
+        val lowCalcium = quiet.copy(electrolytes = quiet.electrolytes.copy(calcium = Mineral.CALCIUM.severeLow - 0.1f))
+        logger.info(
+            "PHYS shake amplitude: quiet {} severe {} storm {} cold {} low calcium {}",
+            AlimentSymptoms.shakeAmplitude(quiet), AlimentSymptoms.shakeAmplitude(severe),
+            AlimentSymptoms.shakeAmplitude(atStorm), AlimentSymptoms.shakeAmplitude(cold),
+            AlimentSymptoms.shakeAmplitude(lowCalcium),
+        )
+        check("a quiet body shakes with a base amplitude of 0.3", abs(AlimentSymptoms.shakeAmplitude(quiet) - 0.3f) < 1e-4f)
+        check("a body at the severe load raises it by 0.4", abs(AlimentSymptoms.shakeAmplitude(severe) - 0.7f) < 1e-4f)
+        check("a storm adds 0.3 on top", abs(AlimentSymptoms.shakeAmplitude(atStorm) - 0.6f) < 1e-4f)
+        check("shivering in the cold adds 0.2", abs(AlimentSymptoms.shakeAmplitude(cold) - 0.5f) < 1e-4f)
+        check("and so does a severe calcium deficit", abs(AlimentSymptoms.shakeAmplitude(lowCalcium) - 0.5f) < 1e-4f)
+
+        // And the whole stack, which is the worst a body can be made to shake: base, severe load,
+        // storm, cold and a calcium deficit together come to 1.4 - gentle enough to aim through.
+        val everything = quiet.copy(
+            bacteria = AlimentData.SEVERE_LOAD,
+            temperature = 30f,
+            mediators = Mediators(storm, storm, storm, storm, storm),
+            electrolytes = quiet.electrolytes.copy(calcium = Mineral.CALCIUM.severeLow - 0.1f),
+        )
+        logger.info("PHYS shake amplitude with everything at once: {}", AlimentSymptoms.shakeAmplitude(everything))
+        check("the worst a body can shake is still 1.4 degrees", abs(AlimentSymptoms.shakeAmplitude(everything) - 1.4f) < 1e-4f)
     }
 
     /**
@@ -2308,22 +2555,32 @@ class AlimentPhysiologySelfTest : ModInitializer {
         traceElements = TraceElements(iodine, vitaminC),
     )
 
-    /** The grindstone table, and the mixin entry points that read it. */
+    /**
+     * The grindstone table, the mixin entry points that read it, and the ore's drop.
+     *
+     * The drop belongs here because it is the other half of the same fact: mining the ore no longer
+     * yields the ore, so the chain's first step is the pickaxe breaking it into a shard and the
+     * grindstone taking that shard. The block keeps its item form, so it stays placeable and stays
+     * grindable - which is why the ore recipes below are checked as well as the shard ones.
+     */
     private fun grinding(level: ServerLevel) {
         val bark = ItemStack(AlimentItems.WILLOW_BARK, 1)
         val ore = ItemStack(AlimentBlocks.ROCK_SALT_ORE.asItem(), 1)
+        val shard = ItemStack(AlimentItems.CRUSHED_ROCK_SALT, 1)
         val salt = ItemStack(AlimentItems.CRUDE_SALT, 1)
         val bread = ItemStack(Items.BREAD, 1)
         val empty = ItemStack.EMPTY
 
         check("the grindstone accepts one willow bark", AlimentGrinding.mayPlace(bark))
         check("the grindstone accepts one rock salt ore", AlimentGrinding.mayPlace(ore))
+        check("the grindstone accepts one crushed rock salt", AlimentGrinding.mayPlace(shard))
         check("the grindstone accepts one crude salt", AlimentGrinding.mayPlace(salt))
         check("the grindstone still rejects unrelated items", !AlimentGrinding.mayPlace(bread))
         check("the grindstone refuses a stack, which onTake would swallow", !AlimentGrinding.mayPlace(ItemStack(AlimentItems.WILLOW_BARK, 2)))
 
         check("one bark grinds into two pieces", AlimentGrinding.resultFor(bark, empty).`is`(AlimentItems.WILLOW_BARK_PIECES) && AlimentGrinding.resultFor(bark, empty).count == 2)
-        check("one rock salt ore grinds into nine crude salt", AlimentGrinding.resultFor(ore, empty).`is`(AlimentItems.CRUDE_SALT) && AlimentGrinding.resultFor(ore, empty).count == 9)
+        check("one rock salt ore grinds into one crushed rock salt", AlimentGrinding.resultFor(ore, empty).`is`(AlimentItems.CRUSHED_ROCK_SALT) && AlimentGrinding.resultFor(ore, empty).count == 1)
+        check("one crushed rock salt grinds into nine crude salt", AlimentGrinding.resultFor(shard, empty).`is`(AlimentItems.CRUDE_SALT) && AlimentGrinding.resultFor(shard, empty).count == 9)
         check("one crude salt grinds into one crude salt powder", AlimentGrinding.resultFor(salt, empty).`is`(AlimentItems.CRUDE_SALT_POWDER))
         check("a plain item still produces nothing", AlimentGrinding.resultFor(bread, empty).isEmpty)
         check("two items in the slots produce nothing", AlimentGrinding.resultFor(bark, salt).isEmpty)
@@ -2342,6 +2599,23 @@ class AlimentPhysiologySelfTest : ModInitializer {
             "a real grindstone slot produces two bark pieces",
             produced.`is`(AlimentItems.WILLOW_BARK_PIECES) && produced.count == 2,
         )
+
+        // Mining the ore no longer returns the ore. This reads the loot table the game really ships
+        // rather than the constant next to it, so a table left pointing at `aliment:rock_salt_ore`
+        // fails here even though every recipe above would still pass.
+        val orePos = player.blockPosition().offset(2, 0, 0)
+        level.setBlockAndUpdate(orePos, AlimentBlocks.ROCK_SALT_ORE.defaultBlockState())
+        val drops = Block.getDrops(level.getBlockState(orePos), level, orePos, null)
+        logger.info("PHYS rock salt ore drops: {}", drops.map { "${it.item} x${it.count}" })
+        check(
+            "a mined rock salt ore drops crushed rock salt",
+            drops.any { it.`is`(AlimentItems.CRUSHED_ROCK_SALT) },
+        )
+        check(
+            "and no longer drops the ore itself",
+            drops.none { it.`is`(AlimentBlocks.ROCK_SALT_ORE.asItem()) },
+        )
+        level.removeBlock(orePos, false)
     }
 
     // ================================================================== chest loot
@@ -3047,8 +3321,8 @@ class AlimentPhysiologySelfTest : ModInitializer {
         check("a glass of juice adds a full drink's 15 water", abs(juice.water - 95f) < 0.01f)
         check("and one naringin, the same as a slice", abs(juice.naringin - 1f) < 0.001f)
         check(
-            "and 10 vitamin C on top of the normal 60",
-            abs(juice.traceElements.vitaminC - 70f) < 0.001f,
+            "and 10 vitamin C on top of the normal 60, plus the plant supplement",
+            abs(juice.traceElements.vitaminC - (60f + 10f + AlimentData.VITAMIN_C_PER_PLANT_FOOD)) < 0.001f,
         )
         check(
             "and the sugar's 0.7 glucose rather than the plant food's 0.4",
@@ -3206,7 +3480,14 @@ class AlimentPhysiologySelfTest : ModInitializer {
         val afterSalt = player.getAttachedOrCreate(AlimentAttachments.DATA)
         check("seaweed iodized salt adds 0.20 umol/L of iodine", abs(afterSalt.traceElements.iodine - 0.35f) < 0.001f)
 
-        // Vitamin C plant food sources:
+        // Vitamin C plant food sources. Every one of these is a plant food, so each carries its own
+        // figure *plus* the model's plant-food supplement - which is why the totals are 5 more than
+        // the table's own amounts.
+        //
+        // The supplement is pinned by value as well as used in the sums below, because an assertion
+        // written only as `own + VITAMIN_C_PER_PLANT_FOOD` is satisfied by *any* value of the
+        // constant, including zero - it would have passed before this change existed.
+        check("the plant food supplement is 5", AlimentData.VITAMIN_C_PER_PLANT_FOOD == 5f)
         val vitCDeficient = AlimentData.HEALTHY.copy(
             traceElements = TraceElements.HEALTHY.withVitaminC(30.0f),
         )
@@ -3214,28 +3495,52 @@ class AlimentPhysiologySelfTest : ModInitializer {
         ItemStack(Items.APPLE, 1).finishUsingItem(level, player)
         val afterApple = player.getAttachedOrCreate(AlimentAttachments.DATA).traceElements.vitaminC
         logger.info("PHYS vitamin C from apple: {}", afterApple)
-        check("apple adds 12 umol/L of vitamin C", abs(afterApple - 42.0f) < 0.001f)
+        check(
+            "apple adds its own 12 plus the plant supplement",
+            abs(afterApple - (30f + 12f + AlimentData.VITAMIN_C_PER_PLANT_FOOD)) < 0.001f,
+        )
 
         player.setAttached(AlimentAttachments.DATA, vitCDeficient)
         ItemStack(Items.CARROT, 1).finishUsingItem(level, player)
         val afterCarrot = player.getAttachedOrCreate(AlimentAttachments.DATA).traceElements.vitaminC
         logger.info("PHYS vitamin C from carrot: {}", afterCarrot)
-        check("carrot adds 10 umol/L of vitamin C", abs(afterCarrot - 40.0f) < 0.001f)
+        check(
+            "carrot adds its own 10 plus the plant supplement",
+            abs(afterCarrot - (30f + 10f + AlimentData.VITAMIN_C_PER_PLANT_FOOD)) < 0.001f,
+        )
 
         player.setAttached(AlimentAttachments.DATA, vitCDeficient)
         ItemStack(Items.PUMPKIN_PIE, 1).finishUsingItem(level, player)
         val afterPumpkin = player.getAttachedOrCreate(AlimentAttachments.DATA).traceElements.vitaminC
         logger.info("PHYS vitamin C from pumpkin pie: {}", afterPumpkin)
-        check("pumpkin pie adds 15 umol/L of vitamin C", abs(afterPumpkin - 45.0f) < 0.001f)
+        check(
+            "pumpkin pie adds its own 15 plus the plant supplement",
+            abs(afterPumpkin - (30f + 15f + AlimentData.VITAMIN_C_PER_PLANT_FOOD)) < 0.001f,
+        )
 
         player.setAttached(AlimentAttachments.DATA, vitCDeficient)
         ItemStack(Items.MELON_SLICE, 1).finishUsingItem(level, player)
         val afterMelon = player.getAttachedOrCreate(AlimentAttachments.DATA).traceElements.vitaminC
         logger.info("PHYS vitamin C from melon: {}", afterMelon)
-        check("melon slice adds 8 umol/L of vitamin C", abs(afterMelon - 38.0f) < 0.001f)
+        check(
+            "melon slice adds its own 8 plus the plant supplement",
+            abs(afterMelon - (30f + 8f + AlimentData.VITAMIN_C_PER_PLANT_FOOD)) < 0.001f,
+        )
+
+        // A potato is a plant food with no vitamin C figure of its own at all, and it is the case the
+        // supplement exists for: it must come out with the supplement and nothing else. Before this
+        // change a potato was worth no ascorbate whatever.
+        player.setAttached(AlimentAttachments.DATA, vitCDeficient)
+        ItemStack(Items.POTATO, 1).finishUsingItem(level, player)
+        val afterPotato = player.getAttachedOrCreate(AlimentAttachments.DATA).traceElements.vitaminC
+        logger.info("PHYS vitamin C from a potato: {}", afterPotato)
+        check(
+            "a potato has no figure of its own and still carries the plant supplement",
+            abs(afterPotato - (30f + AlimentData.VITAMIN_C_PER_PLANT_FOOD)) < 0.001f,
+        )
 
         // The grapefruit slice is a plant food like the carrot, and a citrus besides, so it is
-        // worth the same 10.
+        // worth the same 10 plus the same supplement.
         player.setAttached(AlimentAttachments.DATA, vitCDeficient)
         ItemStack(AlimentItems.GRAPEFRUIT_SLICE, 1).finishUsingItem(level, player)
         val afterGrapefruit = player.getAttachedOrCreate(AlimentAttachments.DATA).traceElements.vitaminC
@@ -3254,6 +3559,76 @@ class AlimentPhysiologySelfTest : ModInitializer {
         check(
             "a glass of grapefruit juice adds as much vitamin C as the slice it is pressed from",
             abs(afterJuice - afterGrapefruit) < 0.001f,
+        )
+
+        // Water from plant food, eaten for real. The apple is the positive case; the beef is the
+        // negative control that matters, because it is worth *exactly the same glucose* as the apple
+        // and so is the one a classifier built on the glucose figure would get wrong.
+        player.setAttached(AlimentAttachments.DATA, AlimentData.HEALTHY.copy(water = 50f))
+        ItemStack(Items.APPLE, 1).finishUsingItem(level, player)
+        val afterAppleEaten = player.getAttachedOrCreate(AlimentAttachments.DATA).water
+        logger.info("PHYS water after an apple: {}", afterAppleEaten)
+        check(
+            "eating an apple adds its plant food's water",
+            abs(afterAppleEaten - (50f + AlimentData.WATER_PER_PLANT_FOOD)) < 0.001f,
+        )
+
+        player.setAttached(AlimentAttachments.DATA, AlimentData.HEALTHY.copy(water = 50f))
+        ItemStack(Items.BEEF, 1).finishUsingItem(level, player)
+        val afterBeefEaten = player.getAttachedOrCreate(AlimentAttachments.DATA).water
+        logger.info("PHYS water after raw beef: {}", afterBeefEaten)
+        check("but eating raw beef adds none", abs(afterBeefEaten - 50f) < 0.001f)
+
+        // A drink is hydrated by the glass and must not also be hydrated as the food it is made of.
+        player.setAttached(AlimentAttachments.DATA, AlimentData.HEALTHY.copy(water = 50f))
+        ItemStack(Items.MUSHROOM_STEW, 1).finishUsingItem(level, player)
+        val afterStew = player.getAttachedOrCreate(AlimentAttachments.DATA).water
+        logger.info("PHYS water after a mushroom stew: {}", afterStew)
+        check(
+            "a stew is hydrated as a drink and not twice as a plant food",
+            abs(afterStew - (50f + AlimentData.WATER_PER_DRINK)) < 0.001f,
+        )
+
+        // The slice is a plant food *and* already a drink with a third of a bottle of its own, so it
+        // takes its own figure rather than the two stacked.
+        player.setAttached(AlimentAttachments.DATA, AlimentData.HEALTHY.copy(water = 50f))
+        ItemStack(AlimentItems.GRAPEFRUIT_SLICE, 1).finishUsingItem(level, player)
+        val afterSliceEaten = player.getAttachedOrCreate(AlimentAttachments.DATA).water
+        logger.info("PHYS water after a grapefruit slice: {}", afterSliceEaten)
+        check("a grapefruit slice adds its own 5, not 5 plus the plant food's 0.4", abs(afterSliceEaten - 55f) < 0.001f)
+
+        // Grape juice: the new drink, and the unfermented half of the grape wine. It is a drink and
+        // carries no ethanol at all, which is the whole reason to make one.
+        player.setAttached(AlimentAttachments.DATA, AlimentData.HEALTHY)
+        ItemStack(AlimentItems.GRAPE_JUICE, 1).finishUsingItem(level, player)
+        val grapesJuiced = player.getAttachedOrCreate(AlimentAttachments.DATA)
+        logger.info(
+            "PHYS grape juice drunk: water {} glucose {} vitaminC {} ethanol {}",
+            grapesJuiced.water, grapesJuiced.glucose, grapesJuiced.traceElements.vitaminC,
+            grapesJuiced.ethanol,
+        )
+        check(
+            "a glass of grape juice adds a full drink's water",
+            abs(grapesJuiced.water - (AlimentData.HEALTHY.water + AlimentData.WATER_PER_DRINK)) < 0.001f,
+        )
+        check(
+            "it carries the sugar's glucose rather than the grape's",
+            abs(grapesJuiced.glucose - (AlimentData.GLUCOSE_NORMAL + AlimentData.GLUCOSE_PER_SWEET_DRINK)) < 0.001f,
+        )
+        check("and no ethanol at all, because it was never fermented", grapesJuiced.ethanol == 0f)
+        check(
+            "and it is routed as a drink and as a sweet drink",
+            AlimentIngestion.isDrink(AlimentItems.GRAPE_JUICE) &&
+                abs(AlimentIngestion.glucoseFor(AlimentItems.GRAPE_JUICE) - AlimentData.GLUCOSE_PER_SWEET_DRINK) < 0.0001f,
+        )
+        // Grape juice has no vitamin C figure of its own, so what it carries is the plant supplement
+        // and nothing else - it is a plant food because it is pressed from one. That it is *also* a
+        // drink is what keeps it off the water rule above.
+        check(
+            "and it is a plant food, so it carries the supplement",
+            AlimentIngestion.isPlantFood(AlimentItems.GRAPE_JUICE) &&
+                abs(grapesJuiced.traceElements.vitaminC -
+                    (AlimentData.HEALTHY.traceElements.vitaminC + AlimentData.VITAMIN_C_PER_PLANT_FOOD)) < 0.001f,
         )
 
         // The mandrake, eaten: the fruit and the seeds both carry the two alkaloids.

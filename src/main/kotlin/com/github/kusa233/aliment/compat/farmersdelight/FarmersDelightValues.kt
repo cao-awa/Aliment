@@ -52,6 +52,15 @@ internal object FarmersDelightValues {
         item in FarmersDelightItems.SOUP
 
     /**
+     * Whether the item is plant food, and so carries the small amount of water such food does.
+     *
+     * Only [FarmersDelightItems.PLANT]. The dishes and the soups are made of plants too, but a soup is
+     * already a drink and hydrates as one, and an assembled plate is asked to hydrate as the meal it
+     * is rather than as the vegetables inside it.
+     */
+    fun isPlantFood(item: Item): Boolean = item in FarmersDelightItems.PLANT
+
+    /**
      * Whether swallowing it raw should roll for a bacterial infection.
      *
      * This is Farmer's Delight's own answer, not an invented one: every item in
