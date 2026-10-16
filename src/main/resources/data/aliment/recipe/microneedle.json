@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "group": "boat",
+  "key": {
+    "#": "minecraft:iron_nugget",
+    "S": "minecraft:stick"
+  },
+  "pattern": [
+    "#",
+    "S"
+  ],
+  "result": {
+    "id": "aliment:grapefruit_boat"
+  }
+}
