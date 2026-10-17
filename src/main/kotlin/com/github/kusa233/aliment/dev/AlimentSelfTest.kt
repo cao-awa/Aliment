@@ -1,5 +1,6 @@
 package com.github.kusa233.aliment.dev
 
+import com.github.kusa233.aliment.Aliment
 import com.github.kusa233.aliment.advancement.AlimentAdvancements
 import com.github.kusa233.aliment.compat.farmersdelight.FarmersDelightNutrition
 import com.github.kusa233.aliment.compat.farmersdelight.FarmersDelightRecipes
@@ -40,9 +41,12 @@ import net.minecraft.resources.Identifier
 import net.minecraft.resources.ResourceKey
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.tags.BlockTags
+import net.minecraft.tags.PoiTypeTags
 import net.minecraft.tags.TagKey
+import net.minecraft.util.Unit
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.InteractionResult
+import net.minecraft.world.entity.ai.village.poi.PoiTypes
 import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.item.BoneMealItem
 import net.minecraft.world.item.Item
@@ -53,6 +57,7 @@ import net.minecraft.world.item.alchemy.Potions
 import net.minecraft.world.item.crafting.AbstractCookingRecipe
 import net.minecraft.world.item.crafting.CraftingInput
 import net.minecraft.world.item.crafting.CraftingRecipe
+import net.minecraft.world.item.trading.MerchantOffer
 import net.minecraft.world.level.biome.Biome
 import net.minecraft.world.level.biome.Biomes
 import net.minecraft.world.level.block.Block
@@ -60,6 +65,10 @@ import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.CampfireBlock
 import net.minecraft.world.level.block.LayeredCauldronBlock
 import net.minecraft.world.level.levelgen.feature.Feature
+import net.minecraft.world.level.storage.loot.LootContext
+import net.minecraft.world.level.storage.loot.LootParams
+import net.minecraft.world.level.storage.loot.parameters.LootContextParamSets
+import net.minecraft.world.level.storage.loot.parameters.LootContextParams
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.BlockHitResult
 import net.minecraft.world.phys.Vec3
@@ -151,6 +160,7 @@ class AlimentSelfTest : ModInitializer {
                 testGrapeWine(level, FakePlayer.get(level))
                 testGrapeTags(level)
                 testFarmersDelight(level, FakePlayer.get(level))
+                testApothecary(level, FakePlayer.get(level))
                 stage = 4
             }
 
@@ -1814,6 +1824,161 @@ class AlimentSelfTest : ModInitializer {
     private fun useOn(level: ServerLevel, player: FakePlayer, pos: BlockPos): InteractionResult {
         val hit = BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false)
         return player.gameMode.useItemOn(player, level, player.mainHandItem, InteractionHand.MAIN_HAND, hit)
+    }
+
+    // ------------------------------------------------------------- apothecary
+
+    /**
+     * The apothecary, end to end, through the real datapack and the real trade machinery.
+     *
+     * This is the only check in the file that reads registries the server *loads* rather than ones
+     * the mod registers: the block, the POI and the profession are code, but the ten trades and five
+     * trade sets are JSON, so a wrong path or a mistyped id is invisible to the compiler. The first
+     * run of this test caught exactly that - the trade tags listed `aliment:apothecary/1/coptis_potion`
+     * because a trade's registry id is its path *including* the file name, so the correct id is
+     * `aliment:apothecary/1/emerald_coptis_potion`. The server refused to start with
+     * "Unbound values in registry minecraft:villager_trade", which is a crash rather than a silent
+     * failure, but only because a tag referenced them; had the tags been right and the files wrong,
+     * the villager would simply have stood there offering nothing.
+     *
+     * Four independent things have to hold, and they are checked in the order they fail at:
+     *
+     * 1. the POI exists, the cabinet's own block state maps to it, and it is in
+     *    `minecraft:acquirable_job_site`. An unemployed villager's profession is `minecraft:none`,
+     *    whose `acquirableJobSite` predicate tests that tag and nothing else, so a job site missing
+     *    from it is never claimed and the block is mere scenery.
+     * 2. the profession resolved, carries the name the lang files use, and accepts the cabinet.
+     * 3. each of the five levels names the trade set the mod registered, and that set loaded.
+     * 4. each set resolves to its two trades, and - the part that matters - each trade produces a
+     *    real `MerchantOffer`. That last step runs the JSON through `VillagerTrade.getOffer`, so it
+     *    exercises the codec, the item ids, the counts and the emerald cost exactly as a villager
+     *    opening its trade screen would. Asserting on `getResult` and `getCostA` rather than on the
+     *    raw `VillagerTrade` fields is deliberate: `VillagerTrade` exposes no accessors at all.
+     */
+    private fun testApothecary(level: ServerLevel, player: FakePlayer) {
+        val registries = level.registryAccess()
+
+        // --- 1. the job site -------------------------------------------------
+        val poiKey = ResourceKey.create(Registries.POINT_OF_INTEREST_TYPE, Registration.id("medicine_cabinet"))
+        val poi = BuiltInRegistries.POINT_OF_INTEREST_TYPE.getOptional(poiKey)
+        check("the medicine cabinet has a point of interest", poi.isPresent)
+        if (poi.isEmpty) return
+        val poiHolder = BuiltInRegistries.POINT_OF_INTEREST_TYPE.wrapAsHolder(poi.get())
+
+        check(
+            "and the cabinet's own block state maps back to it",
+            PoiTypes.forState(AlimentBlocks.MEDICINE_CABINET.defaultBlockState())
+                .map { it.`is`(poiKey) }.orElse(false),
+        )
+        check(
+            "the cabinet is in minecraft:acquirable_job_site, so a villager can claim it",
+            poiHolder.`is`(PoiTypeTags.ACQUIRABLE_JOB_SITE),
+        )
+
+        // --- 2. the profession -----------------------------------------------
+        // `getValue` on a defaulted registry answers `minecraft:none` rather than null, so the
+        // optional is what actually proves the profession was registered.
+        val profession = BuiltInRegistries.VILLAGER_PROFESSION
+            .getOptional(ResourceKey.create(Registries.VILLAGER_PROFESSION, Registration.id("apothecary")))
+        check("the apothecary profession is registered", profession.isPresent)
+        if (profession.isEmpty) return
+        val apothecary = profession.get()
+        check("its name is the one the lang files carry", apothecary.name().string == "Apothecary")
+        check("it accepts the cabinet as its job site", apothecary.heldJobSite().test(poiHolder))
+
+        // --- 3 and 4. the five levels, and the offers behind them ------------
+        // The loot params are exactly the ones `AbstractVillager.addOffersFromTradeSet` supplies.
+        val params = LootParams.Builder(level)
+            .withParameter(LootContextParams.ORIGIN, Vec3.atCenterOf(CAULDRON))
+            .withParameter(LootContextParams.THIS_ENTITY, player)
+            .withParameter(LootContextParams.ADDITIONAL_COST_COMPONENT_ALLOWED, Unit.INSTANCE)
+            .create(LootContextParamSets.VILLAGER_TRADE)
+        val context = LootContext.Builder(params).create(java.util.Optional.empty())
+
+        val wanted = mapOf(
+            1 to listOf("licorice_potion", "coptis_potion"),
+            2 to listOf("seaweed_iodized_salt", "salt_powder"),
+            3 to listOf("glucose_meter", "glucose_test_strip"),
+            4 to listOf("mandrake_fruit", "gymnopilus"),
+            5 to listOf("ephedrine", "grapefruit_juice"),
+        )
+        val tradeSets = registries.lookupOrThrow(Registries.TRADE_SET)
+        val sold = mutableSetOf<Item>()
+        for (rung in 1..5) {
+            val setKey = apothecary.getTrades(rung)
+            check("level $rung names a trade set", setKey != null)
+            if (setKey == null) continue
+            check(
+                "level $rung's key is aliment:apothecary/level_$rung",
+                setKey.identifier() == Registration.id("apothecary/level_$rung"),
+            )
+
+            val set = tradeSets.getOptional(setKey)
+            check("level $rung's trade set loaded from the datapack", set.isPresent)
+            if (set.isEmpty) continue
+            val tradeSet = set.get()
+            check("level $rung picks two offers per restock", tradeSet.calculateNumberOfTrades(context) == 2)
+
+            // `getOffer` returns null when the merchant predicate rejects the context; none of these
+            // trades has one, so every trade must yield an offer.
+            val offers = tradeSet.trades().map { it.value().getOffer(context) }
+            check("level $rung's two trades both produce an offer", offers.all { it != null })
+
+            val names = offers.filterNotNull()
+            for (path in wanted.getValue(rung)) {
+                val item = BuiltInRegistries.ITEM.getValue(Registration.id(path))
+                check(
+                    "level $rung sells $path",
+                    names.any { it.result.item == item },
+                )
+                sold += item
+            }
+            // The cost side, which is what would silently break if a trade's `wants` were mistyped.
+            for (offer in names) {
+                check(
+                    "the offer of ${offer.result.item.descriptionId} is paid for in emeralds",
+                    offer.costA.item == Items.EMERALD,
+                )
+                check("and it can be used twelve times", offer.maxUses == 12)
+            }
+        }
+        check("all ten requested items are sold", sold.size == 10)
+        check("and the trade registry holds at least those ten trades",
+            registries.lookupOrThrow(Registries.VILLAGER_TRADE).size() >= 10)
+
+        // --- 5. the client-side overlay this profession needs ---------------------------------
+        // A profession's robe is not part of the entity texture: `VillagerProfessionLayer` draws a
+        // separate 64x64 overlay resolved from the profession's own registry id,
+        //
+        //     textures/entity/villager/profession/<path>.png
+        //
+        // with the *namespace taken from the profession*. Ours is `aliment:apothecary`, so the file
+        // has to live in this mod's assets at exactly that path - `minecraft:` will not do, and
+        // nothing in the profession, its lang entry or the datapack says so. When it was missing the
+        // villager still worked, still traded, and rendered as the magenta missing-texture square:
+        // invisible to the compiler, to the datapack loader, and to every server-side check above.
+        // These three assertions exist so it cannot come back unnoticed.
+        val professionPath = "apothecary"
+        val overlay = "/assets/${Aliment.MOD_ID}/textures/entity/villager/profession/$professionPath.png"
+        val overlayBytes = javaClass.getResourceAsStream(overlay)?.use { it.readBytes() }
+        check("the apothecary's profession overlay is on the classpath", overlayBytes != null)
+        if (overlayBytes != null) {
+            // A 64x64 PNG, read out of its IHDR rather than with an image library: the two dimensions
+            // are big-endian ints at offsets 16 and 20, and a wrong-sized overlay is silently
+            // stretched over the model instead of rejected.
+            check("and it really is a PNG", overlayBytes.size > 24 &&
+                overlayBytes[0] == 0x89.toByte() && overlayBytes[1] == 'P'.code.toByte())
+            val width = ((overlayBytes[16].toInt() and 0xFF) shl 24) or
+                ((overlayBytes[17].toInt() and 0xFF) shl 16) or
+                ((overlayBytes[18].toInt() and 0xFF) shl 8) or
+                (overlayBytes[19].toInt() and 0xFF)
+            val height = ((overlayBytes[20].toInt() and 0xFF) shl 24) or
+                ((overlayBytes[21].toInt() and 0xFF) shl 16) or
+                ((overlayBytes[22].toInt() and 0xFF) shl 8) or
+                (overlayBytes[23].toInt() and 0xFF)
+            logger.info("PHYS apothecary overlay: {} bytes, {}x{}", overlayBytes.size, width, height)
+            check("and it is the 64x64 the villager model expects", width == 64 && height == 64)
+        }
     }
 
     private fun check(name: String, ok: Boolean) {

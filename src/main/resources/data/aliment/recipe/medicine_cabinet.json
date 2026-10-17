@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "group": "medicine_cabinet",
+  "key": {
+    "#": "#minecraft:planks",
+    "B": "minecraft:glass_bottle"
+  },
+  "pattern": [
+    "###",
+    "BBB",
+    "###"
+  ],
+  "result": {
+    "count": 1,
+    "id": "aliment:medicine_cabinet"
+  }
+}

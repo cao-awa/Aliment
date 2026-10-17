@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=east": {
+      "model": "aliment:block/medicine_cabinet",
+      "y": 90
+    },
+    "facing=north": {
+      "model": "aliment:block/medicine_cabinet"
+    },
+    "facing=south": {
+      "model": "aliment:block/medicine_cabinet",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "aliment:block/medicine_cabinet",
+      "y": 270
+    }
+  }
+}

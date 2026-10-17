@@ -11,6 +11,7 @@ import com.github.kusa233.aliment.registry.AlimentEffects
 import com.github.kusa233.aliment.registry.AlimentEntities
 import com.github.kusa233.aliment.registry.AlimentItems
 import com.github.kusa233.aliment.registry.AlimentRecipes
+import com.github.kusa233.aliment.registry.AlimentVillagers
 import com.github.kusa233.aliment.registry.AlimentWorldGen
 import com.github.kusa233.aliment.world.AlimentLoot
 import com.github.kusa233.aliment.world.tree.AlimentTreeDecorators
@@ -34,6 +35,8 @@ class Aliment : ModInitializer {
         AlimentTreeDecorators.initialize()
         AlimentTrunkPlacers.initialize()
         AlimentBlocks.initialize()
+        // The apothecary's job site is the medicine cabinet, so the block has to exist first.
+        AlimentVillagers.initialize()
         AlimentEntities.initialize()
         // The fever and pain indicators. They are content like the items below and depend on
         // nothing themselves; the only ordering that matters is that they exist by the time

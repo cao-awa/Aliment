@@ -12,6 +12,7 @@ import com.github.kusa233.aliment.world.block.GrapefruitBlock
 import com.github.kusa233.aliment.world.block.GymnopilusBlock
 import com.github.kusa233.aliment.world.block.LicoriceBlock
 import com.github.kusa233.aliment.world.block.MandrakeBlock
+import com.github.kusa233.aliment.world.block.MedicineCabinetBlock
 import com.github.kusa233.aliment.world.block.PhellodendronBlock
 import com.github.kusa233.aliment.world.block.SeaweedBlock
 import com.github.kusa233.aliment.world.block.WillowSoupCauldronBlock
@@ -320,6 +321,25 @@ object AlimentBlocks {
             .strength(2.0F)
             .noOcclusion(),
     ) { BrineCauldronBlock(it) }
+
+    // ---------------------------------------------------------------- apothecary
+
+    /**
+     * The medicine cabinet.
+     *
+     * It is the apothecary's job site - a solid block rather than a decorative one, because a
+     * villager needs something to stand at and claim. Wood and glass rather than iron, to match the
+     * bottles that go into it.
+     */
+    val MEDICINE_CABINET: Block = Registration.registerBlockWithItem(
+        "medicine_cabinet",
+        BlockBehaviour.Properties.of()
+            .mapColor(MapColor.WOOD)
+            .instrument(NoteBlockInstrument.BASS)
+            .strength(2.0F, 3.0F)
+            .sound(SoundType.WOOD)
+            .ignitedByLava(),
+    ) { MedicineCabinetBlock(it) }
 
     // ---------------------------------------------------------------- mandrake
 

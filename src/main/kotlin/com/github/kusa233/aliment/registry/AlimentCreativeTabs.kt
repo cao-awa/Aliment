@@ -104,6 +104,8 @@ object AlimentCreativeTabs {
         // brewing & distillation
         AlimentBlocks.FERMENTATION_TANK,
         AlimentBlocks.CONDENSER_PIPE,
+        // the apothecary's job site
+        AlimentBlocks.MEDICINE_CABINET,
         AlimentItems.BREWER_YEAST,
         AlimentItems.WINE,
         AlimentItems.BEER,
